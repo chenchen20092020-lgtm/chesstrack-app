@@ -260,7 +260,6 @@ function Dots({ current, total }: DotsProps): React.JSX.Element {
 // ─── Root screen ─────────────────────────────────────────────────────────────
 
 export default function OnboardingScreen(): React.JSX.Element {
-  console.log('Onboarding screen rendered');
   const [slide, setSlide] = useState(0);
   const TOTAL = 3;
 

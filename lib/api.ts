@@ -590,33 +590,16 @@ export async function fetchChessComGameMoves(
 ): Promise<GameReview | null> {
   try {
     const trimmedPgn = pgn.trim();
-    console.log('[fetchChessComGameMoves] called with PGN length:', trimmedPgn.length);
     if (!trimmedPgn) {
-      console.log('[fetchChessComGameMoves] returning null: empty PGN string');
       return null;
     }
 
     if (!trimmedPgn.includes('[Event') && !trimmedPgn.includes('[White')) {
-      console.log('[fetchChessComGameMoves] returning null: provided string is not valid PGN');
       return null;
     }
 
-    const review = buildGameReviewFromPgn(trimmedPgn, userResult);
-    if (!review) {
-      console.log('[fetchChessComGameMoves] returning null: buildGameReviewFromPgn failed');
-      return null;
-    }
-    console.log('[fetchChessComGameMoves] review parsed successfully:', {
-      white: review.white,
-      black: review.black,
-      result: review.result,
-      moves: review.moves.length,
-      flags: review.flags.length,
-    });
-    return review;
-  } catch (error) {
-    console.log('[fetchChessComGameMoves] caught error:', error);
-    console.log('[fetchChessComGameMoves] returning null due to caught error');
+    return buildGameReviewFromPgn(trimmedPgn, userResult);
+  } catch {
     return null;
   }
 }
@@ -628,47 +611,26 @@ export async function fetchLichessGameMoves(
 ): Promise<GameReview | null> {
   try {
     const id = extractLichessGameId(gameId);
-    console.log('[fetchLichessGameMoves] called with gameId:', gameId, 'extracted id:', id);
     if (!id) {
-      console.log('[fetchLichessGameMoves] returning null: invalid/empty game id');
       return null;
     }
 
     const url = `https://lichess.org/game/export/${encodeURIComponent(id)}`;
-    console.log('[fetchLichessGameMoves] calling URL:', url);
     const response = await fetch(url, {
       headers: {
         Accept: 'application/x-chess-pgn',
       },
     });
-    console.log('[fetchLichessGameMoves] response status:', response.status, response.ok);
     if (!response.ok) {
-      console.log('[fetchLichessGameMoves] returning null: response not ok');
       return null;
     }
 
     const pgn = await response.text();
-    console.log('[fetchLichessGameMoves] raw PGN/text response:', pgn);
     if (!pgn || (!pgn.includes('[Event') && !pgn.includes('[White'))) {
-      console.log('[fetchLichessGameMoves] returning null: response is not valid PGN');
       return null;
     }
-    const review = buildGameReviewFromPgn(pgn, userResult);
-    if (!review) {
-      console.log('[fetchLichessGameMoves] returning null: buildGameReviewFromPgn failed');
-      return null;
-    }
-    console.log('[fetchLichessGameMoves] review parsed successfully:', {
-      white: review.white,
-      black: review.black,
-      result: review.result,
-      moves: review.moves.length,
-      flags: review.flags.length,
-    });
-    return review;
-  } catch (error) {
-    console.log('[fetchLichessGameMoves] caught error:', error);
-    console.log('[fetchLichessGameMoves] returning null due to caught error');
+    return buildGameReviewFromPgn(pgn, userResult);
+  } catch {
     return null;
   }
 }

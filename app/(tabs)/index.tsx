@@ -223,6 +223,7 @@ export default function HomeScreen(): React.JSX.Element {
     change: 0,
   });
   const [recentGames, setRecentGames] = useState<GameEntry[]>([]);
+  const [ratingEntries, setRatingEntries] = useState<RatingEntry[]>([]);
   const [username, setUsername] = useState<string | null>(null);
   const [goalState, setGoalState] = useState<GoalState>({ goal: null, startRating: null });
   const [streakDays, setStreakDays] = useState<number>(0);
@@ -234,6 +235,7 @@ export default function HomeScreen(): React.JSX.Element {
   // Loads current summary values from AsyncStorage.
   const loadSummary = useCallback(async () => {
     const ratings = await getRatings();
+    setRatingEntries(ratings);
     setSummary(buildSummary(ratings));
     setCoachingTip(getCoachingTip(ratings));
     setWeekly(buildWeekly(ratings));
@@ -297,7 +299,7 @@ export default function HomeScreen(): React.JSX.Element {
 
   const dateText = useMemo(() => formatHeaderDate(new Date()), []);
   const streakMessage = useMemo(() => getStreakMessage(streakDays), [streakDays]);
-  const smallWin = useMemo(() => getSmallWinText([], weekly), [weekly]);
+  const smallWin = useMemo(() => getSmallWinText(ratingEntries, weekly), [ratingEntries, weekly]);
   const nextStep = useMemo(
     () =>
       getNextStep({

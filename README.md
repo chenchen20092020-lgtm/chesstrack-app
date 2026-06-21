@@ -1,50 +1,66 @@
-# Welcome to your Expo app 👋
+# ChessTrack
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A mobile app for serious chess improvers to **track their rating, review their games, and turn losses into lessons**. Built with [Expo](https://expo.dev) and [Expo Router](https://docs.expo.dev/router/introduction).
 
-## Get started
+## Features
 
-1. Install dependencies
+- **Rating tracker** — log your rating manually or sync automatically from **Chess.com** and **Lichess**, visualised as a trend line over time.
+- **Game history** — recent games are pulled from your connected account, with results, opponents, and time controls.
+- **Game review** — paste or open a game and get a move-by-move replay with heuristic flags (opening issues, time-pressure blunders, king-safety, development problems) and a concrete recommendation.
+- **Pattern analysis** — tag your mistakes (tactical miss, time pressure, opening mistake, etc.) and see which recurring weaknesses cost you the most points.
+- **Voice journal** — record spoken reflections after a game; transcripts are summarised into bullet points or a short paragraph via the Groq LLaMA API.
+- **Goals & streaks** — set a target rating, track progress, and keep a daily-consistency streak.
+
+## Tech stack
+
+- Expo SDK 54 / React Native 0.81 / React 19
+- Expo Router (file-based routing) with a custom horizontal-pager tab navigator
+- `chess.js` for PGN parsing and move replay, `react-native-chessboard` for the board
+- `react-native-reanimated` + `react-native-gesture-handler` for the swipeable tab pager
+- `react-native-chart-kit` for the rating chart
+- AsyncStorage for local persistence (see `lib/storage.ts`)
+- Groq API for voice-note summarisation (see `lib/voiceToText.ts`)
+
+## Getting started
+
+1. Install dependencies:
 
    ```bash
    npm install
    ```
 
-2. Start the app
+2. Create a `.env` file in the project root with your Groq API key (required for the voice journal's AI summaries):
+
+   ```
+   EXPO_PUBLIC_GROQ_API_KEY=your_key_here
+   ```
+
+3. Start the dev server:
 
    ```bash
    npx expo start
    ```
 
-In the output, you'll find options to open the app in a
+   Then open the app in [Expo Go](https://expo.dev/go) (scan the QR code), an Android emulator, or an iOS simulator.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## Project structure
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+app/                 Screens (Expo Router file-based routes)
+  (tabs)/            Home, Tracker, History, Journal, Patterns, Settings
+  _layout.tsx        Root stack + font/splash loading
+  onboarding.tsx     First-launch onboarding flow
+  game-review.tsx    Interactive game review (modal)
+components/          Shared UI (BrandSplash)
+lib/                 Data + logic
+  api.ts             Chess.com / Lichess fetching + PGN review engine
+  storage.ts         AsyncStorage persistence + types
+  voiceToText.ts     Groq transcription summarisation
+  theme.ts           Design tokens (colors, fonts, spacing, radius, shadows)
+  tab-context.ts     Cross-screen tab navigation context
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Notes
 
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- All data is stored locally on-device via AsyncStorage; there is no backend account system.
+- `EXPO_PUBLIC_*` env vars are embedded in the client bundle — only use keys that are safe to ship to the client.

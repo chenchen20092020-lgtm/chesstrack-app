@@ -114,10 +114,6 @@ export async function summarizeTranscription(
 ): Promise<string | null> {
   try {
     const apiKey = process.env.EXPO_PUBLIC_GROQ_API_KEY;
-    console.log('[summarize] calling Groq LLaMA');
-    console.log('[summarize] text length:', text.length);
-    console.log('[summarize] format:', format);
-    console.log('[summarize] API key exists:', !!apiKey);
     if (!apiKey) {
       return null;
     }
@@ -147,22 +143,16 @@ export async function summarizeTranscription(
       }
     );
 
-    console.log('[summarize] response status:', response.status);
-    console.log('[summarize] response ok:', response.ok);
-
     const data = (await response.json()) as {
       choices?: { message?: { content?: string } }[];
     };
-    console.log('[summarize] raw response:', JSON.stringify(data));
 
     if (!response.ok) {
-      console.log('[summarize] error detail:', JSON.stringify(data));
       return null;
     }
     const content = data.choices?.[0]?.message?.content;
     return content ? content.trim() : null;
-  } catch (error) {
-    console.error('[summarize] error:', error);
+  } catch {
     return null;
   }
 }

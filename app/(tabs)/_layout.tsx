@@ -240,11 +240,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    shadowColor: colors.accent,
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 12,
     ...shadows.card,
   },
   tabItem: {

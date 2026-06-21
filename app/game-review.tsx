@@ -89,10 +89,6 @@ function getFlagColor(type: string): string {
 // Renders the interactive game review screen.
 export default function GameReviewScreen(): React.JSX.Element {
   const params = useLocalSearchParams<{ gameData?: string; platform?: string }>();
-  console.log('[GameReviewScreen] received params:', {
-    gameData: params.gameData,
-    platform: params.platform,
-  });
   const gameData = useMemo(() => parseGameDataParam(params.gameData), [params.gameData]);
   const { width } = useWindowDimensions();
   const chipsRef = useRef<ScrollView | null>(null);
