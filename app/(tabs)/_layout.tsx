@@ -45,9 +45,9 @@ const TABS: Tab[] = [
 ];
 
 const SPRING_CONFIG = {
-  damping: 26,
-  stiffness: 80,
-  mass: 1,
+  damping: 20,
+  stiffness: 120,
+  mass: 0.5,
 };
 
 const SWIPE_VELOCITY_THRESHOLD = 500;
@@ -81,8 +81,9 @@ export default function TabLayout(): React.JSX.Element {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [activeIndex, setActiveIndex] = useState(0);
-  // Track which screens have been visited so we only mount them once needed.
-  const mountedSet = useRef(new Set([0])).current;
+  // Keep every screen mounted side-by-side so swiping never reveals a blank
+  // page mid-gesture (a major source of the old "cranky" feel).
+  const mountedSet = useRef(new Set(TABS.map((_, i) => i))).current;
 
   const translateX = useSharedValue(0);
   const contextX = useSharedValue(0);
@@ -97,11 +98,13 @@ export default function TabLayout(): React.JSX.Element {
   }, [mountedSet]);
 
   const snapTo = useCallback(
-    (index: number) => {
+    (index: number, velocity = 0) => {
       'worklet';
       const clamped = Math.max(0, Math.min(index, TABS.length - 1));
       activeIndexSV.value = clamped;
-      translateX.value = withSpring(-clamped * width, SPRING_CONFIG);
+      // Carry the fling velocity into the spring so the page continues the
+      // motion of the finger instead of restarting from a dead stop.
+      translateX.value = withSpring(-clamped * width, { ...SPRING_CONFIG, velocity });
       runOnJS(updateActiveIndex)(clamped);
     },
     [width, translateX, activeIndexSV, updateActiveIndex]
@@ -122,8 +125,8 @@ export default function TabLayout(): React.JSX.Element {
   );
 
   const panGesture = Gesture.Pan()
-    .activeOffsetX([-15, 15])
-    .failOffsetY([-10, 10])
+    .activeOffsetX([-10, 10])
+    .failOffsetY([-12, 12])
     .onStart(() => {
       contextX.value = translateX.value;
     })
@@ -147,11 +150,11 @@ export default function TabLayout(): React.JSX.Element {
         Math.abs(e.velocityX) > SWIPE_VELOCITY_THRESHOLD;
 
       if ((swipedFarEnough || swipedFast) && e.translationX < 0) {
-        snapTo(current + 1);
+        snapTo(current + 1, e.velocityX);
       } else if ((swipedFarEnough || swipedFast) && e.translationX > 0) {
-        snapTo(current - 1);
+        snapTo(current - 1, e.velocityX);
       } else {
-        snapTo(current);
+        snapTo(current, e.velocityX);
       }
     });
 
