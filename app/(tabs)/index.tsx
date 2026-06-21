@@ -376,7 +376,10 @@ export default function HomeScreen(): React.JSX.Element {
         {!goalState.goal ? (
           <View style={styles.goalEmptyRow}>
             <Text style={styles.goalEmptyText}>Set your rating goal</Text>
-            <Pressable onPress={() => setGoalModalOpen(true)} style={styles.goalButton}>
+            <Pressable
+              onPress={() => setGoalModalOpen(true)}
+              style={({ pressed }) => [styles.goalButton, pressed && styles.pressed]}
+            >
               <Text style={styles.goalButtonText}>Set Goal</Text>
             </Pressable>
           </View>
@@ -411,22 +414,26 @@ export default function HomeScreen(): React.JSX.Element {
         </View>
       ) : null}
 
-      <View style={styles.card}>
-        <View style={styles.metricRow}>
-          <Text style={styles.metricLabel}>Current Elo Rating</Text>
-          <Text style={styles.metricValue}>{currentRatingText}</Text>
-        </View>
-        <View style={styles.divider} />
-        <View style={styles.metricRow}>
-          <Text style={styles.metricLabel}>Rating Change This Week</Text>
-          <Text style={styles.metricValue}>
-            {summary.currentRating === null ? '-' : formatWeeklyChange(summary.ratingChangeWeek)}
-          </Text>
-        </View>
-        <View style={styles.divider} />
-        <View style={styles.metricRow}>
-          <Text style={styles.metricLabel}>Total Games Logged</Text>
-          <Text style={styles.metricValue}>{summary.totalGames}</Text>
+      <View style={[styles.heroCard, shadows.card]}>
+        <Text style={styles.heroLabel}>CURRENT RATING</Text>
+        <Text style={styles.heroValue}>{currentRatingText}</Text>
+        <View style={styles.heroFooter}>
+          <View style={styles.heroStat}>
+            <Text style={styles.heroStatLabel}>This Week</Text>
+            <Text
+              style={[
+                styles.heroStatValue,
+                { color: getChangeColor(summary.ratingChangeWeek) },
+              ]}
+            >
+              {summary.currentRating === null ? '-' : formatWeeklyChange(summary.ratingChangeWeek)}
+            </Text>
+          </View>
+          <View style={styles.heroVDivider} />
+          <View style={styles.heroStat}>
+            <Text style={styles.heroStatLabel}>Games Logged</Text>
+            <Text style={styles.heroStatValue}>{summary.totalGames}</Text>
+          </View>
         </View>
       </View>
 
@@ -508,10 +515,20 @@ export default function HomeScreen(): React.JSX.Element {
               style={styles.modalInput}
             />
             <View style={styles.modalActions}>
-              <Pressable onPress={() => setGoalModalOpen(false)} style={styles.modalButton}>
+              <Pressable
+                onPress={() => setGoalModalOpen(false)}
+                style={({ pressed }) => [styles.modalButton, pressed && styles.pressed]}
+              >
                 <Text style={styles.modalButtonText}>Cancel</Text>
               </Pressable>
-              <Pressable onPress={saveGoal} style={[styles.modalButton, styles.modalButtonPrimary]}>
+              <Pressable
+                onPress={saveGoal}
+                style={({ pressed }) => [
+                  styles.modalButton,
+                  styles.modalButtonPrimary,
+                  pressed && styles.pressed,
+                ]}
+              >
                 <Text style={[styles.modalButtonText, styles.modalButtonPrimaryText]}>Save</Text>
               </Pressable>
             </View>
@@ -569,36 +586,60 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
     marginBottom: spacing.lg,
   },
-  card: {
+  heroCard: {
     backgroundColor: colors.surfaceRaised,
     borderColor: colors.border,
     borderWidth: 1,
     borderRadius: radius.md,
-    padding: spacing.md,
-    ...shadows.card,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.md,
     marginBottom: spacing.lg,
+    alignItems: 'center',
   },
-  metricRow: {
+  heroLabel: {
+    color: colors.textMuted,
+    fontFamily: fonts.ui,
+    fontSize: 10,
+    letterSpacing: 2,
+    marginBottom: spacing.xs,
+  },
+  heroValue: {
+    color: colors.textPrimary,
+    fontFamily: fonts.headline,
+    fontSize: 56,
+    letterSpacing: 0.5,
+    lineHeight: 60,
+    fontVariant: ['tabular-nums'],
+  },
+  heroFooter: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    minHeight: 48,
+    justifyContent: 'center',
+    marginTop: spacing.md,
+    width: '100%',
   },
-  metricLabel: {
-    color: colors.textSecondary,
-    fontSize: 11,
-    fontFamily: fonts.body,
-    letterSpacing: 0.5,
+  heroStat: {
+    flex: 1,
+    alignItems: 'center',
   },
-  metricValue: {
-    color: colors.textPrimary,
-    fontSize: 24,
-    fontWeight: '700',
-    fontFamily: fonts.headline,
-  },
-  divider: {
-    height: 1,
+  heroVDivider: {
+    width: 1,
+    height: 32,
     backgroundColor: colors.border,
+  },
+  heroStatLabel: {
+    color: colors.textSecondary,
+    fontFamily: fonts.body,
+    fontSize: 11,
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  heroStatValue: {
+    color: colors.textPrimary,
+    fontFamily: fonts.headline,
+    fontSize: 20,
+    letterSpacing: 0.5,
+    fontVariant: ['tabular-nums'],
   },
   coachCard: {
     backgroundColor: colors.surfaceRaised,
@@ -666,8 +707,8 @@ const styles = StyleSheet.create({
   weeklyValue: {
     color: colors.textPrimary,
     fontSize: 24,
-    fontWeight: '700',
     fontFamily: fonts.headline,
+    fontVariant: ['tabular-nums'],
   },
   recentSection: {
     marginBottom: spacing.lg,
@@ -749,8 +790,13 @@ const styles = StyleSheet.create({
   goalButton: {
     backgroundColor: colors.accent,
     borderRadius: radius.full,
-    paddingVertical: spacing.xs + 2,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.lg,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pressed: {
+    opacity: 0.75,
   },
   goalButtonText: {
     color: colors.bg,
@@ -763,6 +809,7 @@ const styles = StyleSheet.create({
     fontSize: 28,
     marginBottom: spacing.sm,
     letterSpacing: 0.5,
+    fontVariant: ['tabular-nums'],
   },
   goalCurrent: {
     color: colors.textPrimary,
@@ -824,6 +871,7 @@ const styles = StyleSheet.create({
     fontSize: 48,
     letterSpacing: 0.5,
     lineHeight: 52,
+    fontVariant: ['tabular-nums'],
   },
   streakLabel: {
     color: colors.textSecondary,

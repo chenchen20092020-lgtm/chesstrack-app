@@ -17,38 +17,54 @@ const MIN_SPLASH_MS = 2200;
 
 // Renders the root layout and loads app fonts.
 export default function RootLayout(): React.JSX.Element | null {
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     PlayfairDisplay_400Regular,
     PlayfairDisplay_700Bold,
     Inter_400Regular,
     Inter_500Medium,
   });
-  const [appReady, setAppReady] = useState(false);
+  // Fonts are usable once they load OR if loading errors (we fall back to
+  // system fonts rather than blocking the app forever).
+  const fontsReady = fontsLoaded || Boolean(fontError);
 
-  // Wait until fonts are loaded before mounting the Stack. Once the Stack is
-  // mounted the navigator exists and router.replace() can safely fire.
+  const [minSplashDone, setMinSplashDone] = useState(false);
+  const [onboardingChecked, setOnboardingChecked] = useState(false);
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
+
+  // Hide the native splash as soon as fonts are resolved.
   useEffect(() => {
-    if (!fontsLoaded) return;
+    if (fontsReady) {
+      SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [fontsReady]);
 
-    const splashStart = Date.now();
+  // Enforce a minimum branded-splash duration, independent of other async work.
+  useEffect(() => {
+    const timer = setTimeout(() => setMinSplashDone(true), MIN_SPLASH_MS);
+    return () => clearTimeout(timer);
+  }, []);
 
-    AsyncStorage.getItem('onboarding_complete').then((value) => {
-      SplashScreen.hideAsync();
+  // Check whether onboarding has been completed. Always resolves, even on error,
+  // so the app can never get stuck waiting on storage.
+  useEffect(() => {
+    AsyncStorage.getItem('onboarding_complete')
+      .then((value) => setNeedsOnboarding(!value))
+      .catch(() => setNeedsOnboarding(false))
+      .finally(() => setOnboardingChecked(true));
+  }, []);
 
-      const elapsed = Date.now() - splashStart;
-      const remaining = Math.max(0, MIN_SPLASH_MS - elapsed);
+  const appReady = fontsReady && minSplashDone && onboardingChecked;
 
-      setTimeout(() => {
-        if (!value) {
-          router.replace('/onboarding');
-        }
-        setAppReady(true);
-      }, remaining);
-    });
-  }, [fontsLoaded]);
+  // Redirect to onboarding only AFTER the Stack is mounted (appReady), so the
+  // navigator exists when router.replace fires.
+  useEffect(() => {
+    if (appReady && needsOnboarding) {
+      router.replace('/onboarding');
+    }
+  }, [appReady, needsOnboarding]);
 
-  // Show the native splash until fonts load, then our branded splash.
-  if (!fontsLoaded) return null;
+  // Show the native splash until fonts resolve, then our branded splash.
+  if (!fontsReady) return null;
 
   if (!appReady) {
     return (
