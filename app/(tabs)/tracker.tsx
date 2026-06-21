@@ -262,7 +262,7 @@ export default function TrackerScreen(): React.JSX.Element {
     setTimeout(() => {
       setCelebrationMessage('');
     }, 2000);
-  }, [loadRatings, ratingInput, validateManualRatingInput]);
+  }, [loadRatings, ratingInput, ratings, validateManualRatingInput]);
 
   const chartLabels = useMemo(() => buildChartLabels(ratings), [ratings]);
   const chartValues = useMemo(() => buildChartValues(ratings), [ratings]);
@@ -312,9 +312,12 @@ export default function TrackerScreen(): React.JSX.Element {
         <View style={styles.toggleRow}>
           <Pressable
             onPress={() => setConnectPlatform('Chess.com')}
-            style={[
+            accessibilityRole="button"
+            accessibilityState={{ selected: connectPlatform === 'Chess.com' }}
+            style={({ pressed }) => [
               styles.toggleButton,
               connectPlatform === 'Chess.com' ? styles.toggleButtonActive : null,
+              pressed && styles.pressed,
             ]}
           >
             <Text
@@ -328,9 +331,12 @@ export default function TrackerScreen(): React.JSX.Element {
           </Pressable>
           <Pressable
             onPress={() => setConnectPlatform('Lichess')}
-            style={[
+            accessibilityRole="button"
+            accessibilityState={{ selected: connectPlatform === 'Lichess' }}
+            style={({ pressed }) => [
               styles.toggleButton,
               connectPlatform === 'Lichess' ? styles.toggleButtonActive : null,
+              pressed && styles.pressed,
             ]}
           >
             <Text
@@ -354,8 +360,12 @@ export default function TrackerScreen(): React.JSX.Element {
           />
           <Pressable
             onPress={connectedUsername ? handleSyncNow : handleConnect}
-            style={styles.inlineButton}
             disabled={isConnecting}
+            accessibilityRole="button"
+            style={({ pressed }) => [
+              styles.inlineButton,
+              (pressed || isConnecting) && styles.pressed,
+            ]}
           >
             <Text style={styles.inlineButtonText}>
               {isConnecting ? '...' : connectedUsername ? 'Sync' : 'Connect'}
@@ -394,7 +404,12 @@ export default function TrackerScreen(): React.JSX.Element {
           keyboardType="numeric"
           style={[styles.input, styles.inputFlex]}
         />
-        <Pressable onPress={handleSave} style={styles.inlineButton} disabled={isSaving}>
+        <Pressable
+          onPress={handleSave}
+          disabled={isSaving}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.inlineButton, (pressed || isSaving) && styles.pressed]}
+        >
           <Text style={styles.inlineButtonText}>{isSaving ? '...' : 'Save'}</Text>
         </Pressable>
       </View>
@@ -485,7 +500,6 @@ const styles = StyleSheet.create({
   title: {
     color: colors.textPrimary,
     fontSize: 28,
-    fontWeight: '700',
     marginBottom: 6,
     fontFamily: fonts.headline,
     letterSpacing: 0.5,
@@ -505,7 +519,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: colors.textPrimary,
     fontSize: 14,
-    fontWeight: '700',
     marginBottom: 8,
     fontFamily: fonts.subheadline,
     letterSpacing: 0.5,
@@ -520,7 +533,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   input: {
-    height: 42,
+    height: 44,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
@@ -563,7 +576,6 @@ const styles = StyleSheet.create({
   toggleText: {
     color: colors.textPrimary,
     fontSize: 12,
-    fontWeight: '600',
     fontFamily: fonts.ui,
     letterSpacing: 0,
   },
@@ -573,15 +585,17 @@ const styles = StyleSheet.create({
   inlineButton: {
     backgroundColor: colors.accent,
     borderRadius: radius.md,
-    paddingVertical: 11,
+    minHeight: 44,
     paddingHorizontal: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  pressed: {
+    opacity: 0.75,
+  },
   inlineButtonText: {
     color: colors.bg,
     fontSize: 13,
-    fontWeight: '700',
     fontFamily: fonts.subheadline,
     letterSpacing: 0.5,
   },
@@ -645,9 +659,9 @@ const styles = StyleSheet.create({
   },
   statValue: {
     fontSize: 18,
-    fontWeight: '700',
     fontFamily: fonts.headline,
     letterSpacing: 0.5,
+    fontVariant: ['tabular-nums'],
   },
   statValueDominant: {
     color: colors.accent,

@@ -16,7 +16,7 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated';
 
-import { colors, fonts, radius, shadows } from '@/lib/theme';
+import { colors, fonts, shadows } from '@/lib/theme';
 import { TabContext } from '@/lib/tab-context';
 
 // Import each screen component directly so they live side-by-side in the pager.

@@ -138,7 +138,13 @@ export default function SettingsScreen(): React.JSX.Element {
                   {row.value ? row.value : 'Not connected'}
                 </Text>
               </View>
-              <Pressable onPress={() => openEdit(row.platform, row.value)} hitSlop={10}>
+              <Pressable
+                onPress={() => openEdit(row.platform, row.value)}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel={`Edit ${row.platform} username`}
+                style={({ pressed }) => pressed && styles.pressed}
+              >
                 <Ionicons name="create-outline" size={18} color={colors.textSecondary} />
               </Pressable>
             </View>
@@ -150,21 +156,21 @@ export default function SettingsScreen(): React.JSX.Element {
       <View style={styles.card}>
         <SectionLabel>DATA</SectionLabel>
         <Pressable
-          style={styles.dangerButton}
+          style={({ pressed }) => [styles.dangerButton, pressed && styles.pressed]}
           onPress={() => confirmDestructive('Clear Rating History', clearRatings)}
         >
           <Text style={styles.dangerButtonText}>Clear Rating History</Text>
         </Pressable>
         <Divider />
         <Pressable
-          style={styles.dangerButton}
+          style={({ pressed }) => [styles.dangerButton, pressed && styles.pressed]}
           onPress={() => confirmDestructive('Clear Journal Entries', clearJournalEntries)}
         >
           <Text style={styles.dangerButtonText}>Clear Journal Entries</Text>
         </Pressable>
         <Divider />
         <Pressable
-          style={styles.dangerButton}
+          style={({ pressed }) => [styles.dangerButton, pressed && styles.pressed]}
           onPress={() => confirmDestructive('Clear All Data', clearAllData)}
         >
           <Text style={[styles.dangerButtonText, styles.dangerButtonBold]}>Clear All Data</Text>
@@ -198,11 +204,18 @@ export default function SettingsScreen(): React.JSX.Element {
                   setIsEditOpen(false);
                   setEditPlatform(null);
                 }}
-                style={styles.modalButton}
+                style={({ pressed }) => [styles.modalButton, pressed && styles.pressed]}
               >
                 <Text style={styles.modalButtonText}>Cancel</Text>
               </Pressable>
-              <Pressable onPress={saveEdit} style={[styles.modalButton, styles.modalButtonPrimary]}>
+              <Pressable
+                onPress={saveEdit}
+                style={({ pressed }) => [
+                  styles.modalButton,
+                  styles.modalButtonPrimary,
+                  pressed && styles.pressed,
+                ]}
+              >
                 <Text style={[styles.modalButtonText, styles.modalButtonPrimaryText]}>Save</Text>
               </Pressable>
             </View>
@@ -279,7 +292,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
   },
   dangerButton: {
-    paddingVertical: 12,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  pressed: {
+    opacity: 0.75,
   },
   dangerButtonText: {
     color: colors.danger,
@@ -351,12 +368,14 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   modalButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
+    minHeight: 44,
+    paddingHorizontal: 16,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modalButtonPrimary: {
     backgroundColor: colors.accent,

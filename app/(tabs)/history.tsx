@@ -20,22 +20,24 @@ function formatGameDate(date: string): string {
   return parsed.toLocaleDateString();
 }
 
-// Returns the style for a game result indicator.
-function getResultIndicatorStyle(result: GameEntry['result']): object {
-  if (result === 'win') {
-    return { backgroundColor: colors.textPrimary };
-  }
-  if (result === 'loss') {
-    return { backgroundColor: '#333333' };
-  }
-  return { backgroundColor: colors.textSecondary };
-}
+// Visual + accessible metadata for each game result.
+const RESULT_META: Record<
+  GameEntry['result'],
+  { letter: string; word: string; color: string }
+> = {
+  win: { letter: 'W', word: 'Win', color: colors.success },
+  loss: { letter: 'L', word: 'Loss', color: colors.danger },
+  draw: { letter: 'D', word: 'Draw', color: colors.textSecondary },
+};
 
 // Renders one game row card.
 function GameCard({ game }: { game: GameEntry }): React.JSX.Element {
+  const result = RESULT_META[game.result];
   return (
     <Pressable
-      style={styles.card}
+      accessibilityRole="button"
+      accessibilityLabel={`${result.word} versus ${game.opponent}, rating ${game.myRating}, ${game.timeControl}`}
+      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
       onPress={() =>
         router.push({
           pathname: '/game-review',
@@ -49,10 +51,14 @@ function GameCard({ game }: { game: GameEntry }): React.JSX.Element {
         })
       }
     >
-      <View style={[styles.resultDot, getResultIndicatorStyle(game.result)]} />
+      <View style={[styles.resultBadge, { backgroundColor: result.color }]}>
+        <Text style={styles.resultBadgeText}>{result.letter}</Text>
+      </View>
       <View style={styles.centerInfo}>
         <View style={styles.opponentRow}>
-          <Text style={styles.opponentText}>{game.opponent}</Text>
+          <Text style={styles.opponentText} numberOfLines={1}>
+            {game.opponent}
+          </Text>
           {game.reviewed ? <View style={styles.reviewedDot} /> : null}
         </View>
         <Text style={styles.metaText}>{formatGameDate(game.date)}</Text>
@@ -149,9 +155,12 @@ export default function HistoryScreen(): React.JSX.Element {
           <Pressable
             key={filter}
             onPress={() => setSelectedFilter(filter)}
-            style={[
+            accessibilityRole="button"
+            accessibilityState={{ selected: selectedFilter === filter }}
+            style={({ pressed }) => [
               styles.filterButton,
               selectedFilter === filter ? styles.filterButtonActive : null,
+              pressed && styles.filterButtonPressed,
             ]}
           >
             <Text
@@ -210,7 +219,6 @@ const styles = StyleSheet.create({
   title: {
     color: colors.textPrimary,
     fontSize: 28,
-    fontWeight: '700',
     marginBottom: 6,
     fontFamily: fonts.headline,
     letterSpacing: 0.5,
@@ -232,17 +240,20 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingVertical: 10,
+    minHeight: 44,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   filterButtonActive: {
     backgroundColor: colors.accent,
     borderColor: colors.accent,
   },
+  filterButtonPressed: {
+    opacity: 0.75,
+  },
   filterText: {
     color: colors.textPrimary,
     fontSize: 12,
-    fontWeight: '600',
     fontFamily: fonts.ui,
     letterSpacing: 0,
   },
@@ -289,11 +300,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     ...shadows.card,
   },
-  resultDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+  cardPressed: {
+    opacity: 0.75,
+  },
+  resultBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     marginRight: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  resultBadgeText: {
+    color: colors.bg,
+    fontSize: 13,
+    fontFamily: fonts.headline,
   },
   centerInfo: {
     flex: 1,
@@ -321,7 +342,6 @@ const styles = StyleSheet.create({
   opponentText: {
     color: colors.textPrimary,
     fontSize: 15,
-    fontWeight: '600',
     marginBottom: 4,
     fontFamily: fonts.subheadline,
     letterSpacing: 0.5,
@@ -329,10 +349,10 @@ const styles = StyleSheet.create({
   ratingText: {
     color: colors.accent,
     fontSize: 16,
-    fontWeight: '700',
     marginBottom: 4,
     fontFamily: fonts.headline,
     letterSpacing: 0.5,
+    fontVariant: ['tabular-nums'],
   },
   metaText: {
     color: colors.textSecondary,

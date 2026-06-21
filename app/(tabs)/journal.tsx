@@ -512,9 +512,11 @@ export default function JournalScreen(): React.JSX.Element {
                     <Pressable
                       key={option.key}
                       onPress={() => handleSummaryFormatSelect(option.key)}
-                      style={[
+                      accessibilityRole="button"
+                      style={({ pressed }) => [
                         styles.summaryOptionButton,
                         selected ? styles.summaryOptionButtonSelected : null,
+                        pressed && styles.pressed,
                       ]}
                     >
                       <Ionicons
@@ -550,9 +552,13 @@ export default function JournalScreen(): React.JSX.Element {
         <Pressable
           onPress={handleSaveEntry}
           disabled={isSaving}
-          style={styles.saveButton}
+          accessibilityRole="button"
+          style={({ pressed }) => [
+            styles.saveButton,
+            (pressed || isSaving) && styles.pressed,
+          ]}
         >
-          <Text style={styles.saveButtonText}>Save Entry</Text>
+          <Text style={styles.saveButtonText}>{isSaving ? 'Saving...' : 'Save Entry'}</Text>
         </Pressable>
       </View>
 
@@ -575,7 +581,13 @@ export default function JournalScreen(): React.JSX.Element {
             </Text>
             <View style={styles.entryBottomRow}>
               <View />
-              <Pressable onPress={() => handleDeleteEntry(entry.id)}>
+              <Pressable
+                onPress={() => handleDeleteEntry(entry.id)}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel="Delete entry"
+                style={({ pressed }) => pressed && styles.pressed}
+              >
                 <Ionicons name="trash-outline" size={22} color={colors.textSecondary} />
               </Pressable>
             </View>
@@ -796,8 +808,12 @@ const styles = StyleSheet.create({
   saveButton: {
     backgroundColor: colors.accent,
     borderRadius: radius.sm,
-    paddingVertical: 14,
+    minHeight: 48,
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pressed: {
+    opacity: 0.75,
   },
   saveButtonText: {
     color: colors.bg,

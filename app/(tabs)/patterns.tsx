@@ -8,11 +8,10 @@ import {
 } from 'react-native';
 
 import { useTabNavigation } from '@/lib/tab-context';
+import { colors, fonts, radius, shadows, spacing } from '@/lib/theme';
+import { GameTag, getGames, getTagSummary, TagSummary } from '@/lib/storage';
 
 const PATTERNS_TAB_INDEX = 4;
-
-import { colors, fonts, radius, spacing } from '@/lib/theme';
-import { GameTag, getGames, getTagSummary, TagSummary } from '@/lib/storage';
 
 // Actionable coaching tip for each tag type.
 const TAG_TIPS: Record<GameTag, string> = {
@@ -117,7 +116,8 @@ export default function PatternsScreen(): React.JSX.Element {
             recurring mistakes will appear here.
           </Text>
           <Pressable
-            style={styles.emptyButton}
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.emptyButton, pressed && styles.pressed]}
             onPress={() => goToTab(HISTORY_TAB_INDEX)}
           >
             <Text style={styles.emptyButtonText}>Review Your First Game</Text>
@@ -220,8 +220,13 @@ const styles = StyleSheet.create({
     marginTop: 20,
     backgroundColor: colors.accent,
     borderRadius: radius.sm,
-    paddingVertical: 12,
+    minHeight: 44,
     paddingHorizontal: spacing.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pressed: {
+    opacity: 0.75,
   },
   emptyButtonText: {
     color: colors.bg,
@@ -236,11 +241,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
     borderLeftWidth: 4,
     borderLeftColor: colors.danger,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 12,
-    elevation: 8,
+    ...shadows.card,
   },
   topCardLabel: {
     color: colors.textMuted,
@@ -300,6 +301,7 @@ const styles = StyleSheet.create({
     color: colors.bg,
     fontFamily: fonts.ui,
     fontSize: 13,
+    fontVariant: ['tabular-nums'],
   },
   // Weekly progress
   weekRow: {
@@ -332,5 +334,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     width: 20,
     textAlign: 'right',
+    fontVariant: ['tabular-nums'],
   },
 });
