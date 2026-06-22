@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import Chessboard from 'react-native-chessboard';
+import Chessboard, { type ChessboardRef } from 'react-native-chessboard';
+import { MotiView } from 'moti';
 import type { AudioRecorder } from 'expo-audio';
 
 import { colors, fonts, radius, shadows, spacing } from '@/lib/theme';
@@ -99,6 +100,7 @@ export default function GameReviewScreen(): React.JSX.Element {
   const gameData = useMemo(() => parseGameDataParam(params.gameData), [params.gameData]);
   const { width } = useWindowDimensions();
   const chipsRef = useRef<ScrollView | null>(null);
+  const boardRef = useRef<ChessboardRef>(null);
 
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
@@ -282,6 +284,12 @@ export default function GameReviewScreen(): React.JSX.Element {
       setCurrentFen('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
     }
   }, [moveIndex, review]);
+
+  // Update the board in place (via ref) instead of remounting it on every move,
+  // so stepping through the game is smooth and instant.
+  useEffect(() => {
+    boardRef.current?.resetBoard(currentFen);
+  }, [currentFen]);
 
   // Loads review data using the selected platform.
   const loadReview = useCallback(async () => {
@@ -495,7 +503,7 @@ export default function GameReviewScreen(): React.JSX.Element {
 
       <View style={styles.boardWrap}>
         <Chessboard
-          key={currentFen}
+          ref={boardRef}
           boardSize={Math.min(width - spacing.lg * 2, 380)}
           gestureEnabled={false}
           fen={currentFen}
@@ -504,12 +512,8 @@ export default function GameReviewScreen(): React.JSX.Element {
       </View>
 
       <View style={styles.controlsRow}>
-        <Pressable style={styles.ctrlButton} onPress={() => jumpToMove(0)}>
-          <Ionicons name="play-skip-back" size={28} color={colors.accent} />
-        </Pressable>
-        <Pressable style={styles.ctrlButton} onPress={() => jumpToMove(moveIndex - 1)}>
-          <Ionicons name="play-back" size={28} color={colors.accent} />
-        </Pressable>
+        <CtrlButton icon="play-skip-back" onPress={() => jumpToMove(0)} />
+        <CtrlButton icon="play-back" onPress={() => jumpToMove(moveIndex - 1)} />
         <View style={styles.counterWrap}>
           {moveIndex === 0 ? (
             <Text style={styles.counterText}>Start</Text>
@@ -525,12 +529,8 @@ export default function GameReviewScreen(): React.JSX.Element {
             </>
           )}
         </View>
-        <Pressable style={styles.ctrlButton} onPress={() => jumpToMove(moveIndex + 1)}>
-          <Ionicons name="play-forward" size={28} color={colors.accent} />
-        </Pressable>
-        <Pressable style={styles.ctrlButton} onPress={() => jumpToMove(totalMoves)}>
-          <Ionicons name="play-skip-forward" size={28} color={colors.accent} />
-        </Pressable>
+        <CtrlButton icon="play-forward" onPress={() => jumpToMove(moveIndex + 1)} />
+        <CtrlButton icon="play-skip-forward" onPress={() => jumpToMove(totalMoves)} />
       </View>
 
       <Text style={styles.sectionSubTitle}>Moves</Text>
@@ -946,11 +946,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     marginBottom: spacing.md,
   },
-  ctrlButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  ctrlOuter: {
+    borderWidth: 1,
+    borderColor: colors.accentDim,
+    borderRadius: 30,
+    padding: 3,
+    backgroundColor: colors.bg,
+  },
+  ctrlInner: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     backgroundColor: colors.surfaceRaised,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1356,3 +1365,33 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
 });
+
+// A move-control button: an outer ring + inner face (double border) that
+// springs inward when pressed (Moti) for instant, tactile feedback.
+function CtrlButton({
+  icon,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  onPress: () => void;
+}): React.JSX.Element {
+  const [pressed, setPressed] = useState(false);
+  return (
+    <Pressable
+      onPress={onPress}
+      onPressIn={() => setPressed(true)}
+      onPressOut={() => setPressed(false)}
+      accessibilityRole="button"
+    >
+      <MotiView
+        style={styles.ctrlOuter}
+        animate={{ scale: pressed ? 0.86 : 1 }}
+        transition={{ type: 'timing', duration: 130 }}
+      >
+        <View style={styles.ctrlInner}>
+          <Ionicons name={icon} size={22} color={colors.accent} />
+        </View>
+      </MotiView>
+    </Pressable>
+  );
+}
