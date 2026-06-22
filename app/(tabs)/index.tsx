@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { router, type Href } from 'expo-router';
+import { FontAwesome5 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { getGames, getJournalEntries, getRatings, getUsername, GameEntry, RatingEntry } from '@/lib/storage';
@@ -445,6 +447,22 @@ export default function HomeScreen(): React.JSX.Element {
         <Text style={styles.nextStepAction}>{nextStep.action}</Text>
         <Text style={styles.nextStepSub}>{nextStep.sub}</Text>
       </View>
+
+      <Pressable
+        onPress={() => router.push('/learn' as Href)}
+        accessibilityRole="button"
+        accessibilityLabel="Learn the basics of chess"
+        style={({ pressed }) => [styles.learnCard, pressed && styles.pressed]}
+      >
+        <View style={styles.learnIcon}>
+          <FontAwesome5 name="chess-knight" size={24} color={colors.accent} />
+        </View>
+        <View style={styles.learnTextWrap}>
+          <Text style={styles.learnTitle}>New to chess?</Text>
+          <Text style={styles.learnSub}>Learn how every piece moves</Text>
+        </View>
+        <Text style={styles.learnArrow}>→</Text>
+      </Pressable>
 
       <View style={styles.weeklyCard}>
         <Text style={styles.weeklyTitle}>This Week</Text>
@@ -945,6 +963,49 @@ const styles = StyleSheet.create({
     fontFamily: fonts.body,
     fontSize: 12,
     letterSpacing: 0,
+  },
+  learnCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceRaised,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.accent,
+    ...shadows.card,
+  },
+  learnIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surfaceHighlight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  learnTextWrap: {
+    flex: 1,
+  },
+  learnTitle: {
+    color: colors.textPrimary,
+    fontFamily: fonts.headline,
+    fontSize: 17,
+    letterSpacing: 0.5,
+  },
+  learnSub: {
+    color: colors.textSecondary,
+    fontFamily: fonts.body,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  learnArrow: {
+    color: colors.accent,
+    fontFamily: fonts.subheadline,
+    fontSize: 20,
+    marginLeft: spacing.sm,
   },
   modalBackdrop: {
     flex: 1,
