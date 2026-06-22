@@ -29,6 +29,7 @@ import {
   estimateAccuracy,
   MoveJudgement,
 } from '@/lib/engine';
+import { explainMistakes } from '@/lib/coach';
 import {
   isOnline,
   startRecording,
@@ -126,6 +127,8 @@ export default function GameReviewScreen(): React.JSX.Element {
   const [engineStatus, setEngineStatus] = useState<'idle' | 'analyzing' | 'done' | 'error'>('idle');
   const [engineProgress, setEngineProgress] = useState<number>(0);
   const [judgements, setJudgements] = useState<MoveJudgement[]>([]);
+  const [explanations, setExplanations] = useState<Record<number, string>>({});
+  const [explaining, setExplaining] = useState<boolean>(false);
 
   // Clears any pending status reset timer when the screen unmounts.
   useEffect(() => {
@@ -383,6 +386,50 @@ export default function GameReviewScreen(): React.JSX.Element {
     return counts;
   }, [userMistakes]);
 
+  // Once the engine has judged the game, ask Groq to explain the top mistakes
+  // in plain language. The engine stays the source of truth.
+  useEffect(() => {
+    if (engineStatus !== 'done') return;
+    const top = userMistakes.slice(0, 6);
+    if (top.length === 0) {
+      setExplanations({});
+      return;
+    }
+    let cancelled = false;
+    setExplaining(true);
+    setExplanations({});
+    const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+    const items = top.map((j) => ({
+      moveNumber: j.moveNumber,
+      color: j.color,
+      played: j.san,
+      best: j.bestSan,
+      evalBefore: userColor === 'w' ? j.evalBeforeWhite : -j.evalBeforeWhite,
+      evalAfter: userColor === 'w' ? j.evalAfterWhite : -j.evalAfterWhite,
+      classification: j.classification,
+      fenBefore: j.ply === 1 ? START : review?.moves[j.ply - 2]?.fen ?? START,
+    }));
+    explainMistakes(items)
+      .then((res) => {
+        if (cancelled || !res) {
+          setExplaining(false);
+          return;
+        }
+        const map: Record<number, string> = {};
+        top.forEach((j, i) => {
+          if (res[i]) map[j.ply] = res[i];
+        });
+        setExplanations(map);
+        setExplaining(false);
+      })
+      .catch(() => {
+        if (!cancelled) setExplaining(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [engineStatus, userMistakes, userColor, review]);
+
   // Keeps the chips row scrolled near the current move pair.
   useEffect(() => {
     if (!chipsRef.current || !review) return;
@@ -598,7 +645,17 @@ export default function GameReviewScreen(): React.JSX.Element {
                     },
                   ]}
                 />
-                <Text style={styles.mistakeText}>{describeMistake(j, userColor)}</Text>
+                <View style={styles.mistakeBody}>
+                  <Text style={styles.mistakeText}>{describeMistake(j, userColor)}</Text>
+                  {explanations[j.ply] ? (
+                    <Text style={styles.coachText}>
+                      <Text style={styles.coachLabel}>Coach: </Text>
+                      {explanations[j.ply]}
+                    </Text>
+                  ) : explaining ? (
+                    <Text style={styles.coachThinking}>Coach is thinking…</Text>
+                  ) : null}
+                </View>
               </Pressable>
             ))
           )}
@@ -1029,12 +1086,32 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     marginRight: spacing.md,
   },
-  mistakeText: {
+  mistakeBody: {
     flex: 1,
+  },
+  mistakeText: {
     color: colors.textPrimary,
     fontFamily: fonts.body,
     fontSize: 13,
     lineHeight: 20,
+  },
+  coachText: {
+    color: colors.textSecondary,
+    fontFamily: fonts.body,
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 6,
+  },
+  coachLabel: {
+    color: colors.accent,
+    fontFamily: fonts.ui,
+  },
+  coachThinking: {
+    color: colors.textMuted,
+    fontFamily: fonts.body,
+    fontSize: 12,
+    marginTop: 6,
+    fontStyle: 'italic',
   },
   engineMore: {
     color: colors.textSecondary,
