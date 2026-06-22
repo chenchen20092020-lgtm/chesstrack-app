@@ -186,6 +186,32 @@ const MARK: Record<Classification, string> = {
   good: '',
 };
 
+export type StudyLink = { title: string; url: string };
+
+// Suggests 1-2 relevant beginner YouTube topics based on where the player's
+// mistakes clustered in this game. Uses YouTube search URLs so links stay live.
+export function suggestStudy(judgements: MoveJudgement[], color: 'w' | 'b'): StudyLink[] {
+  const own = judgements.filter((j) => j.color === color && j.classification !== 'good');
+  const yt = (q: string) => `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
+  const blunders = own.filter((j) => j.classification === 'blunder').length;
+  const opening = own.filter((j) => j.ply <= 20).length;
+  const endgame = own.filter((j) => j.ply > 40).length;
+
+  const recs: StudyLink[] = [];
+  if (blunders >= 1) {
+    recs.push({ title: 'Stop hanging pieces: tactics for beginners', url: yt('chess tactics for beginners avoid blunders') });
+  }
+  if (opening > 0 && opening >= endgame) {
+    recs.push({ title: 'Opening principles every beginner needs', url: yt('chess opening principles for beginners') });
+  } else if (endgame > 0) {
+    recs.push({ title: 'Basic endgames you must know', url: yt('basic chess endgames for beginners') });
+  }
+  if (recs.length === 0) {
+    recs.push({ title: 'How to think during a chess game', url: yt('how to think during a chess game beginners') });
+  }
+  return recs.slice(0, 2);
+}
+
 // Builds a direct, plain-language sentence about a single mistake.
 export function describeMistake(j: MoveJudgement, userColor: 'w' | 'b'): string {
   const number = j.color === 'w' ? `${j.moveNumber}.` : `${j.moveNumber}...`;

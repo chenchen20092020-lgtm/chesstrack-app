@@ -28,8 +28,10 @@ import {
   describeMistake,
   estimateAccuracy,
   MoveJudgement,
+  suggestStudy,
 } from '@/lib/engine';
 import { explainMistakes } from '@/lib/coach';
+import * as WebBrowser from 'expo-web-browser';
 import {
   isOnline,
   startRecording,
@@ -404,6 +406,11 @@ export default function GameReviewScreen(): React.JSX.Element {
     return counts;
   }, [userMistakes]);
 
+  const studyLinks = useMemo(
+    () => (engineStatus === 'done' ? suggestStudy(judgements, userColor) : []),
+    [engineStatus, judgements, userColor]
+  );
+
   // Once the engine has judged the game, ask Groq to explain the top mistakes
   // in plain language. The engine stays the source of truth.
   useEffect(() => {
@@ -682,6 +689,24 @@ export default function GameReviewScreen(): React.JSX.Element {
               +{userMistakes.length - 6} more — step through the moves to see them all.
             </Text>
           ) : null}
+          {studyLinks.length > 0 ? (
+            <>
+              <Text style={styles.studyTitle}>Your path to improve</Text>
+              {studyLinks.map((s) => (
+                <Pressable
+                  key={s.url}
+                  onPress={() => WebBrowser.openBrowserAsync(s.url)}
+                  accessibilityRole="link"
+                  style={({ pressed }) => [styles.studyCard, pressed && styles.enginePressed]}
+                >
+                  <Ionicons name="logo-youtube" size={20} color={colors.danger} />
+                  <Text style={styles.studyText}>{s.title}</Text>
+                  <Text style={styles.studyWatch}>Watch ›</Text>
+                </Pressable>
+              ))}
+            </>
+          ) : null}
+
           <Text style={styles.engineCaption}>
             Evaluations from Stockfish. + favours you, − favours your opponent.
           </Text>
@@ -721,6 +746,8 @@ export default function GameReviewScreen(): React.JSX.Element {
         <Text style={styles.recommendLabel}>YOUR NEXT STEP</Text>
         <Text style={styles.recommendText}>{review.recommendation}</Text>
       </View>
+
+      <View style={styles.pillDivider} />
 
       <View style={styles.taggingSection}>
         <Text style={styles.taggingTitle}>What Went Wrong?</Text>
@@ -1170,6 +1197,45 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 16,
     marginBottom: spacing.md,
+  },
+  studyTitle: {
+    color: colors.textPrimary,
+    fontFamily: fonts.subheadline,
+    fontSize: 15,
+    letterSpacing: 0.5,
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  studyCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceRaised,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  studyText: {
+    flex: 1,
+    color: colors.textPrimary,
+    fontFamily: fonts.body,
+    fontSize: 13,
+    marginLeft: spacing.sm,
+  },
+  studyWatch: {
+    color: colors.accent,
+    fontFamily: fonts.subheadline,
+    fontSize: 13,
+    marginLeft: spacing.sm,
+  },
+  pillDivider: {
+    width: 56,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.accentDim,
+    alignSelf: 'center',
+    marginVertical: spacing.lg,
   },
   insightRow: {
     flexDirection: 'row',
