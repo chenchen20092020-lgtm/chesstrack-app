@@ -21,7 +21,6 @@ import {
   fetchChessComGameMoves,
   fetchLichessGameMoves,
   GameReview,
-  GameReviewFlag,
 } from '@/lib/api';
 import { ALL_TAGS, GameTag, TAG_LABELS, tagGame } from '@/lib/storage';
 import {
@@ -92,6 +91,17 @@ function getFlagColor(type: string): string {
   if (type === 'opening') return colors.danger;
   if (type === 'development' || type === 'king') return colors.warning;
   return colors.accent;
+}
+
+const BOARD_LIGHT = '#C9B79A';
+const BOARD_DARK = '#3B332A';
+const SEV_RANK = { blunder: 3, mistake: 2, inaccuracy: 1 } as const;
+
+// Returns the chip accent color for an engine severity.
+function severityColor(c: 'blunder' | 'mistake' | 'inaccuracy'): string {
+  if (c === 'blunder') return colors.danger;
+  if (c === 'mistake') return colors.warning;
+  return colors.gold;
 }
 
 // Renders the interactive game review screen.
@@ -449,15 +459,15 @@ export default function GameReviewScreen(): React.JSX.Element {
 
   const totalMoves = review?.moves.length ?? 0;
 
-  const flaggedByIndex = useMemo(() => {
-    const map = new Map<number, GameReviewFlag[]>();
-    (review?.flags ?? []).forEach((flag) => {
-      const existing = map.get(flag.moveIndex) ?? [];
-      existing.push(flag);
-      map.set(flag.moveIndex, existing);
+  const judgementByPly = useMemo(() => {
+    const map = new Map<number, 'blunder' | 'mistake' | 'inaccuracy'>();
+    judgements.forEach((j) => {
+      if (j.color === userColor && j.classification !== 'good') {
+        map.set(j.ply, j.classification);
+      }
     });
     return map;
-  }, [review?.flags]);
+  }, [judgements, userColor]);
 
   // Moves board to the selected index while keeping bounds safe.
   const jumpToMove = useCallback(
@@ -502,13 +512,15 @@ export default function GameReviewScreen(): React.JSX.Element {
       <Text style={styles.subtitle}>{getHeaderSubtitle(review)}</Text>
 
       <View style={styles.boardWrap}>
-        <Chessboard
-          ref={boardRef}
-          boardSize={Math.min(width - spacing.lg * 2, 380)}
-          gestureEnabled={false}
-          fen={currentFen}
-          colors={{ white: colors.accent, black: colors.surfaceRaised }}
-        />
+        <View style={styles.boardFrame}>
+          <Chessboard
+            ref={boardRef}
+            boardSize={Math.min(width - spacing.lg * 2 - 16, 360)}
+            gestureEnabled={false}
+            fen={currentFen}
+            colors={{ white: BOARD_LIGHT, black: BOARD_DARK }}
+          />
+        </View>
       </View>
 
       <View style={styles.controlsRow}>
@@ -552,7 +564,11 @@ export default function GameReviewScreen(): React.JSX.Element {
           const whitePly = whiteIdx + 1;
           const blackPly = blackIdx + 1;
           const isCurrent = moveIndex === whitePly || moveIndex === blackPly;
-          const isFlagged = flaggedByIndex.has(whiteIdx) || (blackMv && flaggedByIndex.has(blackIdx));
+          const sevs = [
+            judgementByPly.get(whitePly),
+            blackMv ? judgementByPly.get(blackPly) : undefined,
+          ].filter(Boolean) as ('blunder' | 'mistake' | 'inaccuracy')[];
+          const severity = sevs.sort((a, b) => SEV_RANK[b] - SEV_RANK[a])[0];
           const label = blackMv
             ? `${moveNumber}. ${whiteMv.move} ${blackMv.move}`
             : `${moveNumber}. ${whiteMv.move}`;
@@ -563,14 +579,16 @@ export default function GameReviewScreen(): React.JSX.Element {
               style={[
                 styles.moveChip,
                 isCurrent ? styles.moveChipCurrent : null,
-                !isCurrent && isFlagged ? styles.moveChipFlagged : null,
+                !isCurrent && severity ? { borderColor: severityColor(severity) } : null,
               ]}
             >
+              {!isCurrent && severity ? (
+                <View style={[styles.chipDot, { backgroundColor: severityColor(severity) }]} />
+              ) : null}
               <Text
                 style={[
                   styles.moveChipText,
                   isCurrent ? styles.moveChipTextCurrent : null,
-                  !isCurrent && isFlagged ? styles.moveChipTextFlagged : null,
                 ]}
               >
                 {label}
@@ -938,6 +956,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.md,
   },
+  boardFrame: {
+    padding: 8,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.accentDim,
+    ...shadows.card,
+  },
   controlsRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -991,11 +1017,21 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   moveChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: colors.surfaceRaised,
     borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: 'transparent',
     paddingVertical: 8,
     paddingHorizontal: 12,
     alignSelf: 'flex-start',
+  },
+  chipDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 6,
   },
   moveChipCurrent: {
     backgroundColor: colors.accent,
