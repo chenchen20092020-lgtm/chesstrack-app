@@ -1,32 +1,32 @@
 export const colors = {
-  // Backgrounds — deep forest-black with a faint green undertone (growth/calm)
-  bg: '#0B0F0D',
-  surface: '#111714',
-  surfaceRaised: '#16211B',
-  surfaceHighlight: '#1F2C24',
+  // Backgrounds — soft warm charcoal (never pure black)
+  bg: '#14110D',
+  surface: '#1C1813',
+  surfaceRaised: '#221D16',
+  surfaceHighlight: '#2B251C',
 
-  // Borders — green-tinted neutral
-  border: '#243029',
-  borderLight: '#2F3D35',
+  // Borders — warm neutral
+  border: '#322B22',
+  borderLight: '#3E362B',
 
-  // Text
-  textPrimary: '#F1F5F2',
-  textSecondary: '#8A968F',
-  textMuted: '#56605A',
+  // Text — warm whites and grays
+  textPrimary: '#F4F1EA',
+  textSecondary: '#9A9080',
+  textMuted: '#645B4D',
 
-  // Accent — emerald (growth, learning, progress)
-  accent: '#3FA37A',
-  accentDim: '#2B6F52',
-  accentLight: '#6FD3A6',
+  // Accent — champagne / platinum gold
+  accent: '#C9B785',
+  accentDim: '#8A7D55',
+  accentLight: '#E8D9A8',
 
-  // Secondary highlight — champagne gold, reserved for achievements
-  gold: '#C9B785',
-  goldDim: '#8A7D55',
+  // Secondary highlight (value badges, achievements) — brighter honey
+  gold: '#E0C892',
+  goldDim: '#A8945E',
 
   // Semantic
-  success: '#5FD08A',
-  danger: '#E0655B',
-  warning: '#E8B57C',
+  success: '#6FC08A',
+  danger: '#E06A5E',
+  warning: '#E0A45A',
 };
 
 export const fonts = {
@@ -66,9 +66,9 @@ export const shadows = {
     elevation: 8,
   },
   accent: {
-    shadowColor: '#3FA37A',
+    shadowColor: '#C9B785',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.2,
     shadowRadius: 12,
     elevation: 6,
   },
