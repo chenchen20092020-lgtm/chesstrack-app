@@ -24,6 +24,12 @@ import {
 } from '@/lib/api';
 import { ALL_TAGS, GameTag, TAG_LABELS, tagGame } from '@/lib/storage';
 import {
+  analyzeGame,
+  describeMistake,
+  estimateAccuracy,
+  MoveJudgement,
+} from '@/lib/engine';
+import {
   isOnline,
   startRecording,
   stopRecording,
@@ -116,6 +122,10 @@ export default function GameReviewScreen(): React.JSX.Element {
   const [summarizing, setSummarizing] = useState<boolean>(false);
   const [summaryError, setSummaryError] = useState<string>('');
   const resetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [engineStatus, setEngineStatus] = useState<'idle' | 'analyzing' | 'done' | 'error'>('idle');
+  const [engineProgress, setEngineProgress] = useState<number>(0);
+  const [judgements, setJudgements] = useState<MoveJudgement[]>([]);
 
   // Clears any pending status reset timer when the screen unmounts.
   useEffect(() => {
@@ -317,6 +327,62 @@ export default function GameReviewScreen(): React.JSX.Element {
     loadReview();
   }, [loadReview]);
 
+  // Determine which colour the user played — the side that isn't the opponent.
+  const userColor: 'w' | 'b' = useMemo(() => {
+    if (!review) return 'w';
+    const opp = (gameData?.opponent ?? '').toLowerCase();
+    if (opp && review.white.toLowerCase() === opp) return 'b';
+    return 'w';
+  }, [review, gameData?.opponent]);
+
+  // Run Stockfish analysis once the moves are loaded.
+  useEffect(() => {
+    if (!review || review.moves.length === 0) return;
+    let cancelled = false;
+    setEngineStatus('analyzing');
+    setEngineProgress(0);
+    setJudgements([]);
+    analyzeGame(review.moves, {
+      onProgress: (d, t) => {
+        if (!cancelled) setEngineProgress(Math.round((d / t) * 100));
+      },
+    })
+      .then((result) => {
+        if (cancelled) return;
+        if (!result) {
+          setEngineStatus('error');
+          return;
+        }
+        setJudgements(result.judgements);
+        setEngineStatus('done');
+      })
+      .catch(() => {
+        if (!cancelled) setEngineStatus('error');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [review]);
+
+  const userMistakes = useMemo(
+    () =>
+      judgements
+        .filter((j) => j.color === userColor && j.classification !== 'good')
+        .sort((a, b) => b.cpl - a.cpl),
+    [judgements, userColor]
+  );
+  const accuracy = useMemo(
+    () => estimateAccuracy(judgements, userColor),
+    [judgements, userColor]
+  );
+  const mistakeCounts = useMemo(() => {
+    const counts = { blunder: 0, mistake: 0, inaccuracy: 0 };
+    userMistakes.forEach((j) => {
+      if (j.classification !== 'good') counts[j.classification] += 1;
+    });
+    return counts;
+  }, [userMistakes]);
+
   // Keeps the chips row scrolled near the current move pair.
   useEffect(() => {
     if (!chipsRef.current || !review) return;
@@ -466,6 +532,86 @@ export default function GameReviewScreen(): React.JSX.Element {
           );
         })}
       </ScrollView>
+
+      <View style={styles.divider} />
+
+      <Text style={styles.sectionTitle}>Engine Analysis</Text>
+      {engineStatus === 'analyzing' ? (
+        <View style={styles.engineLoading}>
+          <ActivityIndicator size="small" color={colors.accent} />
+          <Text style={styles.engineLoadingText}>
+            Analyzing with Stockfish… {engineProgress}%
+          </Text>
+        </View>
+      ) : engineStatus === 'error' ? (
+        <Text style={styles.engineUnavailable}>
+          Engine analysis is unavailable right now. Reopen the game to retry.
+        </Text>
+      ) : engineStatus === 'done' ? (
+        <>
+          <View style={styles.engineSummary}>
+            <View style={styles.engineStat}>
+              <Text style={styles.engineStatValue}>
+                {accuracy != null ? `${accuracy}%` : '–'}
+              </Text>
+              <Text style={styles.engineStatLabel}>Accuracy</Text>
+            </View>
+            <View style={styles.engineStat}>
+              <Text style={[styles.engineStatValue, { color: colors.danger }]}>
+                {mistakeCounts.blunder}
+              </Text>
+              <Text style={styles.engineStatLabel}>Blunders</Text>
+            </View>
+            <View style={styles.engineStat}>
+              <Text style={[styles.engineStatValue, { color: colors.warning }]}>
+                {mistakeCounts.mistake}
+              </Text>
+              <Text style={styles.engineStatLabel}>Mistakes</Text>
+            </View>
+            <View style={styles.engineStat}>
+              <Text style={styles.engineStatValue}>{mistakeCounts.inaccuracy}</Text>
+              <Text style={styles.engineStatLabel}>Inaccuracies</Text>
+            </View>
+          </View>
+          {userMistakes.length === 0 ? (
+            <Text style={styles.engineClean}>
+              No major mistakes — a clean game. Well played.
+            </Text>
+          ) : (
+            userMistakes.slice(0, 6).map((j) => (
+              <Pressable
+                key={j.ply}
+                onPress={() => jumpToMove(j.ply)}
+                accessibilityRole="button"
+                style={({ pressed }) => [styles.mistakeCard, pressed && styles.enginePressed]}
+              >
+                <View
+                  style={[
+                    styles.mistakeAccent,
+                    {
+                      backgroundColor:
+                        j.classification === 'blunder'
+                          ? colors.danger
+                          : j.classification === 'mistake'
+                            ? colors.warning
+                            : colors.textSecondary,
+                    },
+                  ]}
+                />
+                <Text style={styles.mistakeText}>{describeMistake(j, userColor)}</Text>
+              </Pressable>
+            ))
+          )}
+          {userMistakes.length > 6 ? (
+            <Text style={styles.engineMore}>
+              +{userMistakes.length - 6} more — step through the moves to see them all.
+            </Text>
+          ) : null}
+          <Text style={styles.engineCaption}>
+            Evaluations from Stockfish. + favours you, − favours your opponent.
+          </Text>
+        </>
+      ) : null}
 
       <View style={styles.divider} />
 
@@ -812,6 +958,96 @@ const styles = StyleSheet.create({
     fontFamily: fonts.headline,
     fontSize: 18,
     marginBottom: 12,
+  },
+  engineLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  engineLoadingText: {
+    color: colors.textSecondary,
+    fontFamily: fonts.body,
+    fontSize: 13,
+  },
+  engineUnavailable: {
+    color: colors.textSecondary,
+    fontFamily: fonts.body,
+    fontSize: 13,
+    lineHeight: 20,
+    marginBottom: spacing.md,
+  },
+  engineSummary: {
+    flexDirection: 'row',
+    backgroundColor: colors.surfaceRaised,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingVertical: spacing.md,
+    marginBottom: spacing.md,
+    ...shadows.card,
+  },
+  engineStat: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  engineStatValue: {
+    color: colors.accent,
+    fontFamily: fonts.headline,
+    fontSize: 22,
+    letterSpacing: 0.5,
+    fontVariant: ['tabular-nums'],
+  },
+  engineStatLabel: {
+    color: colors.textSecondary,
+    fontFamily: fonts.body,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  engineClean: {
+    color: colors.success,
+    fontFamily: fonts.body,
+    fontSize: 14,
+    marginBottom: spacing.md,
+  },
+  mistakeCard: {
+    flexDirection: 'row',
+    backgroundColor: colors.surfaceRaised,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    alignItems: 'flex-start',
+  },
+  enginePressed: {
+    opacity: 0.75,
+  },
+  mistakeAccent: {
+    width: 3,
+    alignSelf: 'stretch',
+    borderRadius: 2,
+    marginRight: spacing.md,
+  },
+  mistakeText: {
+    flex: 1,
+    color: colors.textPrimary,
+    fontFamily: fonts.body,
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  engineMore: {
+    color: colors.textSecondary,
+    fontFamily: fonts.body,
+    fontSize: 12,
+    marginBottom: spacing.sm,
+  },
+  engineCaption: {
+    color: colors.textMuted,
+    fontFamily: fonts.body,
+    fontSize: 11,
+    lineHeight: 16,
+    marginBottom: spacing.md,
   },
   insightRow: {
     flexDirection: 'row',
