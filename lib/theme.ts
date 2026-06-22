@@ -1,28 +1,32 @@
 export const colors = {
-  // Backgrounds — pure dark, no purple tint
-  bg: '#0C0C0C',
-  surface: '#161616',
-  surfaceRaised: '#1E1E1E',
-  surfaceHighlight: '#252525',
+  // Backgrounds — deep forest-black with a faint green undertone (growth/calm)
+  bg: '#0B0F0D',
+  surface: '#111714',
+  surfaceRaised: '#16211B',
+  surfaceHighlight: '#1F2C24',
 
-  // Borders — neutral gray only
-  border: '#2C2C2C',
-  borderLight: '#383838',
+  // Borders — green-tinted neutral
+  border: '#243029',
+  borderLight: '#2F3D35',
 
   // Text
-  textPrimary: '#F5F5F5',
-  textSecondary: '#888888',
-  textMuted: '#555555',
+  textPrimary: '#F1F5F2',
+  textSecondary: '#8A968F',
+  textMuted: '#56605A',
 
-  // Accent — champagne/platinum
-  accent: '#C9B785',
-  accentDim: '#8A7D55',
-  accentLight: '#E8D9A8',
+  // Accent — emerald (growth, learning, progress)
+  accent: '#3FA37A',
+  accentDim: '#2B6F52',
+  accentLight: '#6FD3A6',
+
+  // Secondary highlight — champagne gold, reserved for achievements
+  gold: '#C9B785',
+  goldDim: '#8A7D55',
 
   // Semantic
-  success: '#6BCB8B',
-  danger: '#E05A5A',
-  warning: '#E8A87C',
+  success: '#5FD08A',
+  danger: '#E0655B',
+  warning: '#E8B57C',
 };
 
 export const fonts = {
@@ -62,9 +66,9 @@ export const shadows = {
     elevation: 8,
   },
   accent: {
-    shadowColor: '#C9B785',
+    shadowColor: '#3FA37A',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.25,
     shadowRadius: 12,
     elevation: 6,
   },

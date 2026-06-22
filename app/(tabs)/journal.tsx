@@ -361,15 +361,15 @@ export default function JournalScreen(): React.JSX.Element {
   const statusColor = (() => {
     switch (recordingStatus) {
       case 'recording':
-        return '#E05A5A';
+        return colors.danger;
       case 'transcribing':
-        return '#C9B785';
+        return colors.accent;
       case 'done':
-        return '#6BCB8B';
+        return colors.success;
       case 'error':
-        return '#E05A5A';
+        return colors.danger;
       default:
-        return '#555555';
+        return colors.textMuted;
     }
   })();
 
@@ -482,7 +482,7 @@ export default function JournalScreen(): React.JSX.Element {
                 <Text style={styles.summarizingText}>Summarizing...</Text>
                 <ActivityIndicator
                   size="small"
-                  color="#C9B785"
+                  color={colors.accent}
                   style={styles.summarizingSpinner}
                 />
               </View>
@@ -522,7 +522,7 @@ export default function JournalScreen(): React.JSX.Element {
                       <Ionicons
                         name={option.icon}
                         size={16}
-                        color={selected ? '#0C0C0C' : '#888888'}
+                        color={selected ? colors.bg : colors.textSecondary}
                       />
                       <Text
                         style={[
@@ -672,7 +672,7 @@ const styles = StyleSheet.create({
     height: 70,
     borderRadius: 35,
     borderWidth: 2,
-    borderColor: '#E05A5A',
+    borderColor: colors.danger,
     left: -7,
     top: -7,
   },
@@ -680,23 +680,23 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#1E1E1E',
+    backgroundColor: colors.surfaceRaised,
     borderWidth: 1,
     borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   micButtonRecording: {
-    backgroundColor: '#E05A5A',
-    borderColor: '#E05A5A',
+    backgroundColor: colors.danger,
+    borderColor: colors.danger,
   },
   micButtonDone: {
-    backgroundColor: '#6BCB8B',
-    borderColor: '#6BCB8B',
+    backgroundColor: colors.success,
+    borderColor: colors.success,
   },
   micButtonError: {
-    backgroundColor: '#E05A5A',
-    borderColor: '#E05A5A',
+    backgroundColor: colors.danger,
+    borderColor: colors.danger,
   },
   timerText: {
     color: colors.textSecondary,
@@ -713,11 +713,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   summaryCard: {
-    backgroundColor: '#1E1E1E',
+    backgroundColor: colors.surfaceRaised,
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#2C2C2C',
+    borderColor: colors.border,
     marginTop: 16,
     marginBottom: 16,
   },
@@ -728,25 +728,25 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   summaryTitle: {
-    color: '#F5F5F5',
+    color: colors.textPrimary,
     fontFamily: fonts.subheadline,
     fontSize: 15,
     flex: 1,
     paddingRight: 8,
   },
   summaryDismiss: {
-    color: '#555555',
+    color: colors.textMuted,
     fontFamily: fonts.ui,
     fontSize: 12,
   },
   summaryPreview: {
-    backgroundColor: '#161616',
+    backgroundColor: colors.surface,
     borderRadius: 8,
     padding: 10,
     marginBottom: 16,
   },
   summaryPreviewText: {
-    color: '#888888',
+    color: colors.textSecondary,
     fontFamily: fonts.body,
     fontSize: 12,
     lineHeight: 18,
@@ -756,9 +756,9 @@ const styles = StyleSheet.create({
     marginHorizontal: -4,
   },
   summaryOptionButton: {
-    backgroundColor: '#161616',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#2C2C2C',
+    borderColor: colors.border,
     borderRadius: 8,
     padding: 10,
     flex: 1,
@@ -767,24 +767,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   summaryOptionButtonSelected: {
-    backgroundColor: '#C9B785',
-    borderColor: '#C9B785',
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
   },
   summaryOptionLabel: {
-    color: '#888888',
+    color: colors.textSecondary,
     fontFamily: fonts.ui,
     fontSize: 13,
     marginTop: 4,
   },
   summaryOptionLabelSelected: {
-    color: '#0C0C0C',
+    color: colors.bg,
   },
   summarizingWrap: {
     alignItems: 'center',
     paddingVertical: 8,
   },
   summarizingText: {
-    color: '#C9B785',
+    color: colors.accent,
     fontFamily: fonts.body,
     fontSize: 13,
   },

@@ -199,9 +199,9 @@ export default function HistoryScreen(): React.JSX.Element {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor="#C9B785"
-            colors={['#C9B785']}
-            progressBackgroundColor="#1E1E1E"
+            tintColor={colors.accent}
+            colors={[colors.accent]}
+            progressBackgroundColor={colors.surfaceRaised}
           />
         }
       />

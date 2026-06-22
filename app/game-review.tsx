@@ -573,12 +573,12 @@ export default function GameReviewScreen(): React.JSX.Element {
             style={[
               styles.recordingStatusText,
               recordingStatus === 'recording'
-                ? { color: '#E05A5A' }
+                ? { color: colors.danger }
                 : recordingStatus === 'transcribing'
-                ? { color: '#C9B785' }
+                ? { color: colors.accent }
                 : recordingStatus === 'done'
-                ? { color: '#6BCB8B' }
-                : { color: '#E05A5A' },
+                ? { color: colors.success }
+                : { color: colors.danger },
             ]}
           >
             {recordingStatus === 'recording'
@@ -747,7 +747,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#1E1E1E',
+    backgroundColor: colors.surfaceRaised,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -756,14 +756,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   counterText: {
-    color: '#F5F5F5',
+    color: colors.textPrimary,
     fontFamily: fonts.subheadline,
     fontSize: 16,
     minWidth: 100,
     textAlign: 'center',
   },
   counterMove: {
-    color: '#C9B785',
+    color: colors.accent,
     fontFamily: fonts.ui,
     fontSize: 14,
     textAlign: 'center',
@@ -955,7 +955,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#1E1E1E',
+    backgroundColor: colors.surfaceRaised,
     borderWidth: 1,
     borderColor: colors.border,
     alignItems: 'center',
@@ -963,16 +963,16 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   reflectionMicButtonRecording: {
-    backgroundColor: '#E05A5A',
-    borderColor: '#E05A5A',
+    backgroundColor: colors.danger,
+    borderColor: colors.danger,
   },
   reflectionMicButtonDone: {
-    backgroundColor: '#6BCB8B',
-    borderColor: '#6BCB8B',
+    backgroundColor: colors.success,
+    borderColor: colors.success,
   },
   reflectionMicButtonError: {
-    backgroundColor: '#E05A5A',
-    borderColor: '#E05A5A',
+    backgroundColor: colors.danger,
+    borderColor: colors.danger,
   },
   recordingStatusText: {
     fontSize: 12,
@@ -988,9 +988,9 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   summaryPill: {
-    backgroundColor: '#161616',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#2C2C2C',
+    borderColor: colors.border,
     borderRadius: radius.full,
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -998,25 +998,25 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   summaryPillSelected: {
-    backgroundColor: '#C9B785',
-    borderColor: '#C9B785',
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
   },
   summaryPillText: {
-    color: '#888888',
+    color: colors.textSecondary,
     fontFamily: fonts.ui,
     fontSize: 12,
   },
   summaryPillTextSelected: {
-    color: '#0C0C0C',
+    color: colors.bg,
   },
   summarizingInlineText: {
-    color: '#C9B785',
+    color: colors.accent,
     fontFamily: fonts.body,
     fontSize: 12,
     marginTop: 4,
   },
   summaryErrorText: {
-    color: '#E05A5A',
+    color: colors.danger,
     fontFamily: fonts.body,
     fontSize: 12,
     marginBottom: 8,
