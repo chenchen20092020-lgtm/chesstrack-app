@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Animated,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { MotiView } from 'moti';
 import type { AudioRecorder } from 'expo-audio';
 
 import {
@@ -76,7 +76,7 @@ export default function JournalScreen(): React.JSX.Element {
     null
   );
   const [summarizing, setSummarizing] = useState<boolean>(false);
-  const pulseAnim = useRef(new Animated.Value(0.3)).current;
+  const [micPressed, setMicPressed] = useState<boolean>(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const resetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -93,35 +93,6 @@ export default function JournalScreen(): React.JSX.Element {
   useEffect(() => {
     loadEntries();
   }, [loadEntries]);
-
-  // Starts the recording pulse animation while recording is active.
-  useEffect(() => {
-    if (recordingStatus !== 'recording') {
-      pulseAnim.stopAnimation();
-      pulseAnim.setValue(0.3);
-      return;
-    }
-
-    const pulseLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 700,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 0.3,
-          duration: 700,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-
-    pulseLoop.start();
-    return () => {
-      pulseLoop.stop();
-    };
-  }, [pulseAnim, recordingStatus]);
 
   // Cleans up timer resources when screen unmounts.
   useEffect(() => {
@@ -241,6 +212,8 @@ export default function JournalScreen(): React.JSX.Element {
       if (format === 'raw') {
         appendToNote(transcribedText);
         clearSummaryState();
+        setSuccessMessage('Added to your reflection — tap Save Entry to keep it');
+        setTimeout(() => setSuccessMessage(''), 3000);
         return;
       }
 
@@ -250,8 +223,10 @@ export default function JournalScreen(): React.JSX.Element {
 
       if (summary) {
         appendToNote(summary);
+        setSuccessMessage('Added to your reflection — tap Save Entry to keep it');
+        setTimeout(() => setSuccessMessage(''), 3000);
       } else {
-        setErrorMessage('Summarization failed. Raw text added instead.');
+        setErrorMessage('Summarization timed out. Raw text added instead.');
         appendToNote(transcribedText);
         setTimeout(() => setErrorMessage(''), 3000);
       }
@@ -378,9 +353,11 @@ export default function JournalScreen(): React.JSX.Element {
   const micIconName: React.ComponentProps<typeof Ionicons>['name'] =
     recordingStatus === 'recording' ? 'stop' : 'mic-outline';
   const micIconColor =
-    recordingStatus === 'recording' || recordingStatus === 'done'
-      ? '#FFFFFF'
-      : colors.textPrimary;
+    recordingStatus === 'recording' ||
+    recordingStatus === 'done' ||
+    recordingStatus === 'error'
+      ? colors.bg
+      : colors.accent;
 
   return (
     <ScrollView
@@ -410,50 +387,52 @@ export default function JournalScreen(): React.JSX.Element {
         />
 
         <View style={styles.recordingColumn}>
-          <View style={styles.recordingRow}>
-            <View style={styles.recordingLeft}>
-              {recordingStatus === 'recording' ? (
-                <Animated.View
-                  style={[
-                    styles.pulseRing,
-                    {
-                      opacity: pulseAnim,
-                    },
-                  ]}
-                />
-              ) : null}
-              <Pressable
-                onPress={handleMicPress}
-                disabled={micDisabled}
-                style={[
-                  styles.micButton,
-                  recordingStatus === 'recording'
-                    ? styles.micButtonRecording
-                    : null,
-                  recordingStatus === 'done' ? styles.micButtonDone : null,
-                  recordingStatus === 'error' ? styles.micButtonError : null,
-                ]}
+          <View style={styles.micWrap}>
+            {recordingStatus === 'recording' ? (
+              <MotiView
+                key="pulse"
+                style={styles.micPulse}
+                from={{ scale: 0.9, opacity: 0.45 }}
+                animate={{ scale: 1.7, opacity: 0 }}
+                transition={{ type: 'timing', duration: 1400, loop: true, repeatReverse: false }}
+              />
+            ) : null}
+            <Pressable
+              onPress={handleMicPress}
+              onPressIn={() => setMicPressed(true)}
+              onPressOut={() => setMicPressed(false)}
+              disabled={micDisabled}
+              accessibilityRole="button"
+              accessibilityLabel={
+                recordingStatus === 'recording' ? 'Stop recording' : 'Start voice note'
+              }
+            >
+              <MotiView
+                style={styles.micOuter}
+                animate={{ scale: micPressed ? 0.92 : 1 }}
+                transition={{ type: 'timing', duration: 120 }}
               >
-                {recordingStatus === 'transcribing' ? (
-                  <ActivityIndicator size="small" color={colors.accent} />
-                ) : (
-                  <Ionicons
-                    name={micIconName}
-                    size={24}
-                    color={micIconColor}
-                  />
-                )}
-              </Pressable>
-              {recordingStatus === 'recording' ? (
-                <Text style={styles.timerText}>
-                  {formatDuration(recordingSeconds)}
-                </Text>
-              ) : null}
-            </View>
+                <View
+                  style={[
+                    styles.micInner,
+                    recordingStatus === 'recording' ? styles.micInnerRecording : null,
+                    recordingStatus === 'done' ? styles.micInnerDone : null,
+                    recordingStatus === 'error' ? styles.micInnerError : null,
+                  ]}
+                >
+                  {recordingStatus === 'transcribing' ? (
+                    <ActivityIndicator size="small" color={colors.accent} />
+                  ) : (
+                    <Ionicons name={micIconName} size={28} color={micIconColor} />
+                  )}
+                </View>
+              </MotiView>
+            </Pressable>
           </View>
-          <Text style={[styles.statusText, { color: statusColor }]}>
-            {statusText}
-          </Text>
+          <Text style={[styles.statusText, { color: statusColor }]}>{statusText}</Text>
+          {recordingStatus === 'recording' ? (
+            <Text style={styles.timerText}>{formatDuration(recordingSeconds)}</Text>
+          ) : null}
         </View>
 
         {transcribedText ? (
@@ -655,55 +634,56 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
-  recordingRow: {
-    flexDirection: 'row',
+  micWrap: {
+    width: 96,
+    height: 96,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: 4,
   },
-  recordingLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    position: 'relative',
-  },
-  pulseRing: {
+  micPulse: {
     position: 'absolute',
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    borderWidth: 2,
-    borderColor: colors.danger,
-    left: -7,
-    top: -7,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: colors.danger,
   },
-  micButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  micOuter: {
+    borderWidth: 1,
+    borderColor: colors.accentDim,
+    borderRadius: 44,
+    padding: 4,
+    backgroundColor: colors.surface,
+  },
+  micInner: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: colors.surfaceRaised,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  micButtonRecording: {
+  micInnerRecording: {
     backgroundColor: colors.danger,
     borderColor: colors.danger,
   },
-  micButtonDone: {
+  micInnerDone: {
     backgroundColor: colors.success,
     borderColor: colors.success,
   },
-  micButtonError: {
+  micInnerError: {
     backgroundColor: colors.danger,
     borderColor: colors.danger,
   },
   timerText: {
     color: colors.textSecondary,
-    marginLeft: 10,
+    marginTop: 4,
     fontFamily: fonts.body,
     letterSpacing: 0,
     fontSize: 14,
+    fontVariant: ['tabular-nums'],
   },
   statusText: {
     fontSize: 12,

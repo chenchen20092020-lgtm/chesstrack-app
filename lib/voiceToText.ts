@@ -85,6 +85,8 @@ export async function transcribeAudio(
     formData.append('language', 'en');
     formData.append('response_format', 'json');
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
     const response = await fetch(
       'https://api.groq.com/openai/v1/audio/transcriptions',
       {
@@ -93,8 +95,10 @@ export async function transcribeAudio(
           Authorization: `Bearer ${apiKey}`,
         },
         body: formData,
+        signal: controller.signal,
       }
     );
+    clearTimeout(timeout);
 
     if (!response.ok) {
       return null;
@@ -123,6 +127,8 @@ export async function summarizeTranscription(
         ? "You are a direct chess coach. Turn the player's spoken reflection on their game into 3-4 short, concrete takeaways they can act on. Be honest and specific: if they describe a mistake, name it plainly and say what to do instead next time. Each bullet starts with •. Use only what the player actually said — do not invent moves, evaluations, or facts."
         : "You are a direct chess coach. Turn the player's spoken reflection into a concise 2-3 sentence takeaway. Be honest and specific about what went wrong and what to focus on next, using only what the player actually said. Do not invent moves, evaluations, or facts.";
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
     const response = await fetch(
       'https://api.groq.com/openai/v1/chat/completions',
       {
@@ -140,8 +146,10 @@ export async function summarizeTranscription(
           max_tokens: 200,
           temperature: 0.3,
         }),
+        signal: controller.signal,
       }
     );
+    clearTimeout(timeout);
 
     const data = (await response.json()) as {
       choices?: { message?: { content?: string } }[];
