@@ -77,8 +77,10 @@ export default function JournalScreen(): React.JSX.Element {
   );
   const [summarizing, setSummarizing] = useState<boolean>(false);
   const [micPressed, setMicPressed] = useState<boolean>(false);
+  const [isStreaming, setIsStreaming] = useState<boolean>(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const resetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const streamRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Loads journal entries from storage.
   const loadEntries = useCallback(async () => {
@@ -102,6 +104,9 @@ export default function JournalScreen(): React.JSX.Element {
       }
       if (resetTimeoutRef.current) {
         clearTimeout(resetTimeoutRef.current);
+      }
+      if (streamRef.current) {
+        clearInterval(streamRef.current);
       }
     };
   }, []);
@@ -139,7 +144,28 @@ export default function JournalScreen(): React.JSX.Element {
     }, 1000);
   }, []);
 
-  // Stops recording, transcribes with Groq, and appends the result to the note.
+  // Streams transcribed text into the reflection box word-by-word, so the user
+  // watches their words appear (true live STT needs a native module / dev build).
+  const streamTranscript = useCallback((text: string) => {
+    if (streamRef.current) clearInterval(streamRef.current);
+    const tokens = text.split(/(\s+)/);
+    let i = 0;
+    setIsStreaming(true);
+    setNote((prev) => (prev ? `${prev}\n\n` : prev));
+    streamRef.current = setInterval(() => {
+      if (i >= tokens.length) {
+        if (streamRef.current) clearInterval(streamRef.current);
+        streamRef.current = null;
+        setIsStreaming(false);
+        return;
+      }
+      const tok = tokens[i];
+      i += 1;
+      setNote((prev) => prev + tok);
+    }, 55);
+  }, []);
+
+  // Stops recording, transcribes with Groq, and streams the result into the note.
   const handleStopAndTranscribe = useCallback(async () => {
     if (!recorder) {
       return;
@@ -179,20 +205,21 @@ export default function JournalScreen(): React.JSX.Element {
       return;
     }
 
-    // Park the transcription and let the user choose how to summarize it.
+    // Stream the words into the reflection box, then let the user pick a format.
     setTranscribedText(text);
     setSummaryFormat(null);
     setRecordingStatus('done');
     setStatusDetail('');
-  }, [recorder, scheduleReset]);
-
-  // Appends the given text to the note, separating with a blank line.
-  const appendToNote = useCallback((text: string) => {
-    setNote((prev) => (prev ? `${prev}\n\n${text}` : text));
-  }, []);
+    streamTranscript(text);
+  }, [recorder, scheduleReset, streamTranscript]);
 
   // Resets the summary card state and returns the mic UI to idle.
   const clearSummaryState = useCallback(() => {
+    if (streamRef.current) {
+      clearInterval(streamRef.current);
+      streamRef.current = null;
+    }
+    setIsStreaming(false);
     setTranscribedText(null);
     setSummaryFormat(null);
     setSummarizing(false);
@@ -203,16 +230,16 @@ export default function JournalScreen(): React.JSX.Element {
   // Handles tapping one of the summary format options.
   const handleSummaryFormatSelect = useCallback(
     async (format: SummaryFormat) => {
-      if (!transcribedText || summarizing) {
+      if (!transcribedText || summarizing || isStreaming) {
         return;
       }
 
       setSummaryFormat(format);
 
       if (format === 'raw') {
-        appendToNote(transcribedText);
+        // Raw text is already in the reflection box from streaming.
         clearSummaryState();
-        setSuccessMessage('Added to your reflection — tap Save Entry to keep it');
+        setSuccessMessage('Saved as raw — tap Save Entry to keep it');
         setTimeout(() => setSuccessMessage(''), 3000);
         return;
       }
@@ -222,26 +249,23 @@ export default function JournalScreen(): React.JSX.Element {
       setSummarizing(false);
 
       if (summary) {
-        appendToNote(summary);
-        setSuccessMessage('Added to your reflection — tap Save Entry to keep it');
+        // Replace the streamed raw text with the formatted version.
+        setNote((prev) => prev.replace(transcribedText, summary));
+        setSuccessMessage('Reformatted — tap Save Entry to keep it');
         setTimeout(() => setSuccessMessage(''), 3000);
       } else {
-        setErrorMessage('Summarization timed out. Raw text added instead.');
-        appendToNote(transcribedText);
+        setErrorMessage('Summarization timed out. Keeping your raw text.');
         setTimeout(() => setErrorMessage(''), 3000);
       }
       clearSummaryState();
     },
-    [appendToNote, clearSummaryState, summarizing, transcribedText]
+    [clearSummaryState, isStreaming, summarizing, transcribedText]
   );
 
-  // Dismisses the summary card, keeping raw transcription in the note.
+  // Dismisses the card. The raw transcription is already in the note.
   const handleSummaryDismiss = useCallback(() => {
-    if (transcribedText) {
-      appendToNote(transcribedText);
-    }
     clearSummaryState();
-  }, [appendToNote, clearSummaryState, transcribedText]);
+  }, [clearSummaryState]);
 
   // Saves a journal entry after validating note input.
   const handleSaveEntry = useCallback(async () => {
@@ -439,7 +463,7 @@ export default function JournalScreen(): React.JSX.Element {
           <View style={styles.summaryCard}>
             <View style={styles.summaryHeader}>
               <Text style={styles.summaryTitle}>
-                How should AI summarize this?
+                How do you want this summarized?
               </Text>
               <Pressable
                 onPress={handleSummaryDismiss}
@@ -450,15 +474,11 @@ export default function JournalScreen(): React.JSX.Element {
               </Pressable>
             </View>
 
-            <View style={styles.summaryPreview}>
-              <Text style={styles.summaryPreviewText} numberOfLines={4}>
-                {transcribedText}
-              </Text>
-            </View>
-
-            {summarizing ? (
+            {isStreaming || summarizing ? (
               <View style={styles.summarizingWrap}>
-                <Text style={styles.summarizingText}>Summarizing...</Text>
+                <Text style={styles.summarizingText}>
+                  {isStreaming ? 'Jotting down your words…' : 'Summarizing…'}
+                </Text>
                 <ActivityIndicator
                   size="small"
                   color={colors.accent}
