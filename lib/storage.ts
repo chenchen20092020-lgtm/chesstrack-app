@@ -242,3 +242,35 @@ export async function getTagSummary(): Promise<TagSummary> {
     .sort((a, b) => b.count - a.count);
   return { totalTagged: taggedGames.length, tags };
 }
+
+const PUZZLE_PROGRESS_KEY = 'puzzle_progress';
+
+export type PuzzleStats = { solved: number; xp: number; level: number };
+
+// XP per level. Level is derived from total XP.
+export const XP_PER_LEVEL = 100;
+
+function levelForXp(xp: number): number {
+  return Math.floor(xp / XP_PER_LEVEL) + 1;
+}
+
+// Returns the player's puzzle-path progress.
+export async function getPuzzleStats(): Promise<PuzzleStats> {
+  try {
+    const raw = await AsyncStorage.getItem(PUZZLE_PROGRESS_KEY);
+    const parsed = raw ? (JSON.parse(raw) as { solved?: number; xp?: number }) : {};
+    const solved = typeof parsed.solved === 'number' ? parsed.solved : 0;
+    const xp = typeof parsed.xp === 'number' ? parsed.xp : 0;
+    return { solved, xp, level: levelForXp(xp) };
+  } catch {
+    return { solved: 0, xp: 0, level: 1 };
+  }
+}
+
+// Records a solved puzzle, adds XP, and returns the updated stats.
+export async function addPuzzleSolved(points: number): Promise<PuzzleStats> {
+  const current = await getPuzzleStats();
+  const next = { solved: current.solved + 1, xp: current.xp + Math.max(0, points) };
+  await AsyncStorage.setItem(PUZZLE_PROGRESS_KEY, JSON.stringify(next));
+  return { ...next, level: levelForXp(next.xp) };
+}

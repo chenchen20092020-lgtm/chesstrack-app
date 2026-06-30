@@ -10,6 +10,7 @@ export type EngineEval = {
   evalCp: number; // centipawns, White POV (positive = White better)
   mate: number | null;
   bestSan: string | null; // engine's best move at this position, in SAN
+  bestUci: string | null; // same move in UCI (e.g. "g1f3"), for move-matching
 };
 
 export type Classification = 'blunder' | 'mistake' | 'inaccuracy' | 'good';
@@ -22,6 +23,7 @@ export type MoveJudgement = {
   cpl: number; // centipawns lost vs the engine's best (>= 0)
   classification: Classification;
   bestSan: string | null; // what should have been played
+  bestUci: string | null; // the best move in UCI, for building puzzles
   evalBeforeWhite: number; // White-POV centipawns before the move
   evalAfterWhite: number; // White-POV centipawns after the move
 };
@@ -70,7 +72,12 @@ export async function evaluateFen(fen: string, depth = 12): Promise<EngineEval |
     }
 
     evalCp = Math.max(-EVAL_CLAMP, Math.min(EVAL_CLAMP, evalCp));
-    return { evalCp, mate: data.mate ?? null, bestSan: data.san ?? null };
+    return {
+      evalCp,
+      mate: data.mate ?? null,
+      bestSan: data.san ?? null,
+      bestUci: data.move ?? null,
+    };
   } catch {
     return null;
   }
@@ -155,6 +162,7 @@ export async function analyzeGame(
       cpl,
       classification: classify(cpl),
       bestSan: before.bestSan,
+      bestUci: before.bestUci,
       evalBeforeWhite: before.evalCp,
       evalAfterWhite: after.evalCp,
     });

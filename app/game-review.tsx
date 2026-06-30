@@ -11,7 +11,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, type Href } from 'expo-router';
 import Chessboard, { type ChessboardRef } from 'react-native-chessboard';
 import { MotiView } from 'moti';
 import type { AudioRecorder } from 'expo-audio';
@@ -411,6 +411,22 @@ export default function GameReviewScreen(): React.JSX.Element {
     [engineStatus, judgements, userColor]
   );
 
+  // Builds puzzles from the player's own mistakes: the position before each
+  // mistake, with the engine's best move as the solution.
+  const trainingPuzzles = useMemo(() => {
+    if (engineStatus !== 'done') return [];
+    const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+    return userMistakes
+      .filter((j) => j.bestUci)
+      .map((j) => ({
+        fen: j.ply === 1 ? START : review?.moves[j.ply - 2]?.fen ?? START,
+        solution: j.bestUci as string,
+        moveNumber: j.moveNumber,
+        classification: j.classification,
+        color: j.color,
+      }));
+  }, [engineStatus, userMistakes, review]);
+
   // Once the engine has judged the game, ask Groq to explain the top mistakes
   // in plain language. The engine stays the source of truth.
   useEffect(() => {
@@ -689,6 +705,22 @@ export default function GameReviewScreen(): React.JSX.Element {
               +{userMistakes.length - 6} more — step through the moves to see them all.
             </Text>
           ) : null}
+          {trainingPuzzles.length > 0 ? (
+            <Pressable
+              onPress={() =>
+                router.push({
+                  pathname: '/puzzles',
+                  params: { data: JSON.stringify(trainingPuzzles) },
+                } as unknown as Href)
+              }
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.trainButton, pressed && styles.enginePressed]}
+            >
+              <Ionicons name="extension-puzzle" size={20} color={colors.bg} />
+              <Text style={styles.trainButtonText}>Do puzzles that target your mistakes</Text>
+            </Pressable>
+          ) : null}
+
           {studyLinks.length > 0 ? (
             <>
               <Text style={styles.studyTitle}>Your path to improve</Text>
@@ -1197,6 +1229,25 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 16,
     marginBottom: spacing.md,
+  },
+  trainButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.accent,
+    borderRadius: radius.md,
+    minHeight: 50,
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    marginBottom: spacing.md,
+    ...shadows.accent,
+  },
+  trainButtonText: {
+    color: colors.bg,
+    fontFamily: fonts.subheadline,
+    fontSize: 15,
+    letterSpacing: 0.5,
+    marginLeft: spacing.sm,
   },
   studyTitle: {
     color: colors.textPrimary,
