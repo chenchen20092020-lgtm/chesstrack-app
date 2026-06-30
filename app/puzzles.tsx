@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Pressable,
   StyleSheet,
   Text,
@@ -12,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import Chessboard, { type ChessboardRef } from 'react-native-chessboard';
 import { MotiView } from 'moti';
+import { Chess, type Square } from 'chess.js';
 
 import { colors, fonts, radius, shadows, spacing } from '@/lib/theme';
 import {
@@ -20,98 +22,189 @@ import {
   PuzzleStats,
   XP_PER_LEVEL,
 } from '@/lib/storage';
+import { fetchLichessPuzzle, LichessPuzzle } from '@/lib/lichessPuzzles';
 
 const BOARD_LIGHT = '#C9B79A';
 const BOARD_DARK = '#3B332A';
+const LICHESS_POINTS = 15;
 
 type Puzzle = {
+  id: string;
   fen: string;
-  solution: string; // UCI, e.g. "g1f3"
-  moveNumber: number;
-  classification: string;
-  color: 'w' | 'b';
+  solution: string[]; // UCI; solver plays even indices, opponent odd
+  points: number;
+  source: 'mistake' | 'lichess';
 };
 
-const POINTS: Record<string, number> = { blunder: 20, mistake: 15, inaccuracy: 10 };
-
-// Parses the puzzle array passed via route params.
 function parsePuzzles(raw: string | string[] | undefined): Puzzle[] {
   try {
     const value = Array.isArray(raw) ? raw[0] : raw;
     if (!value) return [];
     const parsed = JSON.parse(value) as Puzzle[];
-    return Array.isArray(parsed) ? parsed.filter((p) => p.fen && p.solution) : [];
+    return Array.isArray(parsed)
+      ? parsed.filter((p) => p.fen && Array.isArray(p.solution) && p.solution.length > 0)
+      : [];
   } catch {
     return [];
   }
 }
 
-// Renders the targeted-puzzle trainer (Chess.com-style: solve, score, next).
+function lichessToPuzzle(lp: LichessPuzzle): Puzzle {
+  return { id: `l-${lp.id}`, fen: lp.fen, solution: lp.solution, points: LICHESS_POINTS, source: 'lichess' };
+}
+
+// Renders the targeted-puzzle trainer: solve, score XP, continue endlessly.
 export default function PuzzlesScreen(): React.JSX.Element {
-  const params = useLocalSearchParams<{ data?: string }>();
+  const params = useLocalSearchParams<{ data?: string; angle?: string; difficulty?: string }>();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const puzzles = useMemo(() => parsePuzzles(params.data), [params.data]);
 
-  const boardRef = useRef<ChessboardRef>(null);
+  const initialPuzzles = useMemo(() => parsePuzzles(params.data), [params.data]);
+  const angle = Array.isArray(params.angle) ? params.angle[0] : params.angle;
+  const difficulty = Array.isArray(params.difficulty) ? params.difficulty[0] : params.difficulty;
+
+  const [puzzles, setPuzzles] = useState<Puzzle[]>(initialPuzzles);
   const [index, setIndex] = useState(0);
   const [solved, setSolved] = useState(false);
-  const [checking, setChecking] = useState(false);
   const [wrong, setWrong] = useState(false);
   const [earned, setEarned] = useState(0);
+  const [loadingNext, setLoadingNext] = useState(false);
+  const [fetchError, setFetchError] = useState(false);
   const [stats, setStats] = useState<PuzzleStats>({ solved: 0, xp: 0, level: 1 });
 
+  const boardRef = useRef<ChessboardRef>(null);
+  const chessRef = useRef<Chess | null>(null);
+  const solIdxRef = useRef(0);
+  const lockRef = useRef(false);
+  const puzzleRef = useRef<Puzzle | null>(null);
+  const indexRef = useRef(0);
+  const puzzlesRef = useRef<Puzzle[]>(initialPuzzles);
+  const fetchingRef = useRef(false);
+
   const puzzle = puzzles[index];
+
+  useEffect(() => {
+    indexRef.current = index;
+  }, [index]);
+  useEffect(() => {
+    puzzlesRef.current = puzzles;
+  }, [puzzles]);
 
   useEffect(() => {
     getPuzzleStats().then(setStats);
   }, []);
 
-  // Reset the board to the current puzzle whenever it changes.
+  // Set up the board and solving state whenever the current puzzle changes.
   useEffect(() => {
-    if (puzzle) boardRef.current?.resetBoard(puzzle.fen);
+    if (!puzzle) return;
+    puzzleRef.current = puzzle;
+    try {
+      chessRef.current = new Chess(puzzle.fen);
+    } catch {
+      chessRef.current = null;
+    }
+    solIdxRef.current = 0;
+    lockRef.current = false;
+    setSolved(false);
+    setWrong(false);
+    setEarned(0);
+    boardRef.current?.resetBoard(puzzle.fen);
   }, [puzzle]);
 
-  const sideToMove = puzzle && puzzle.fen.split(' ')[1] === 'b' ? 'Black' : 'White';
+  // When the player is on the last loaded puzzle, fetch the next one ahead of
+  // time so the Next button stays instant.
+  const prefetchIfLast = useCallback(() => {
+    if (indexRef.current < puzzlesRef.current.length - 1) return;
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
+    fetchLichessPuzzle({ angle, difficulty }).then((lp) => {
+      fetchingRef.current = false;
+      if (lp) setPuzzles((prev) => [...prev, lichessToPuzzle(lp)]);
+    });
+  }, [angle, difficulty]);
 
   const onMove = useCallback(
     (info: { move: { from: string; to: string; promotion?: string } }) => {
-      if (!puzzle || solved || checking) return;
-      const { solution } = puzzle;
-      const from = solution.slice(0, 2);
-      const to = solution.slice(2, 4);
-      const promo = solution.slice(4, 5) || undefined;
-      const correct =
+      const p = puzzleRef.current;
+      const chess = chessRef.current;
+      if (!p || !chess || lockRef.current) return;
+
+      const sol = p.solution[solIdxRef.current];
+      if (!sol) return;
+      const from = sol.slice(0, 2);
+      const to = sol.slice(2, 4);
+      const promo = sol.slice(4, 5) || undefined;
+      const ok =
         info.move.from === from &&
         info.move.to === to &&
         (!promo || info.move.promotion === promo);
 
-      if (correct) {
-        setSolved(true);
-        setWrong(false);
-        const points = POINTS[puzzle.classification] ?? 15;
-        setEarned(points);
-        addPuzzleSolved(points).then(setStats);
-      } else {
+      if (!ok) {
         setWrong(true);
-        setChecking(true);
+        lockRef.current = true;
         setTimeout(() => {
-          boardRef.current?.resetBoard(puzzle.fen);
-          setChecking(false);
+          boardRef.current?.resetBoard(chess.fen());
+          lockRef.current = false;
         }, 500);
+        return;
       }
+
+      setWrong(false);
+      try {
+        chess.move({ from, to, promotion: promo });
+      } catch {
+        // ignore — board already reflects the move
+      }
+      solIdxRef.current += 1;
+
+      // Solved when no solver moves remain.
+      if (solIdxRef.current >= p.solution.length) {
+        lockRef.current = true;
+        setSolved(true);
+        setEarned(p.points);
+        addPuzzleSolved(p.points).then(setStats);
+        prefetchIfLast();
+        return;
+      }
+
+      // Auto-play the opponent's forced reply, then let the player continue.
+      const reply = p.solution[solIdxRef.current];
+      const rFrom = reply.slice(0, 2);
+      const rTo = reply.slice(2, 4);
+      const rPromo = reply.slice(4, 5) || undefined;
+      lockRef.current = true;
+      setTimeout(() => {
+        try {
+          chess.move({ from: rFrom, to: rTo, promotion: rPromo });
+        } catch {
+          // ignore
+        }
+        boardRef.current?.move({ from: rFrom as Square, to: rTo as Square });
+        solIdxRef.current += 1;
+        lockRef.current = false;
+      }, 300);
     },
-    [puzzle, solved, checking]
+    [prefetchIfLast]
   );
 
-  const goNext = useCallback(() => {
-    setSolved(false);
-    setWrong(false);
-    setEarned(0);
-    setIndex((i) => Math.min(i + 1, puzzles.length - 1));
-  }, [puzzles.length]);
+  const goNext = useCallback(async () => {
+    setFetchError(false);
+    if (index + 1 < puzzles.length) {
+      setIndex(index + 1);
+      return;
+    }
+    setLoadingNext(true);
+    const lp = await fetchLichessPuzzle({ angle, difficulty });
+    setLoadingNext(false);
+    if (lp) {
+      setPuzzles((prev) => [...prev, lichessToPuzzle(lp)]);
+      setIndex((i) => i + 1);
+    } else {
+      setFetchError(true);
+    }
+  }, [index, puzzles.length, angle, difficulty]);
 
-  const atEnd = index >= puzzles.length - 1;
+  const sideToMove = puzzle && puzzle.fen.split(' ')[1] === 'b' ? 'Black' : 'White';
   const boardSize = Math.min(width - spacing.lg * 2 - 16, 360);
   const xpIntoLevel = stats.xp % XP_PER_LEVEL;
 
@@ -142,7 +235,6 @@ export default function PuzzlesScreen(): React.JSX.Element {
         <Text style={styles.backText}>Back</Text>
       </Pressable>
 
-      {/* ── Path / level ─────────────────────────────────────────────────── */}
       <View style={styles.levelCard}>
         <View style={styles.levelTop}>
           <Text style={styles.levelLabel}>YOUR CHESS PATH</Text>
@@ -160,7 +252,6 @@ export default function PuzzlesScreen(): React.JSX.Element {
         </Text>
       </View>
 
-      {/* ── Board ────────────────────────────────────────────────────────── */}
       <View style={styles.boardWrap}>
         <View style={styles.boardFrame}>
           <Chessboard
@@ -175,7 +266,6 @@ export default function PuzzlesScreen(): React.JSX.Element {
         </View>
       </View>
 
-      {/* ── Prompt / feedback ────────────────────────────────────────────── */}
       <View style={styles.statusArea}>
         {solved ? (
           <MotiView
@@ -192,36 +282,43 @@ export default function PuzzlesScreen(): React.JSX.Element {
             <Text style={styles.earnedText}>+{earned} XP</Text>
           </MotiView>
         ) : wrong ? (
-          <Text style={styles.wrongText}>Not the move you needed — try again.</Text>
+          <Text style={styles.wrongText}>Not the move — try again.</Text>
         ) : (
           <>
             <Text style={styles.promptTitle}>{sideToMove} to move</Text>
-            <Text style={styles.promptSub}>Find the move you missed in this position</Text>
+            <Text style={styles.promptSub}>
+              {puzzle.source === 'mistake'
+                ? 'Find the move you missed in this position'
+                : 'Find the best move'}
+            </Text>
           </>
         )}
       </View>
 
-      {/* ── Next / finish ────────────────────────────────────────────────── */}
       {solved ? (
-        atEnd ? (
-          <Pressable onPress={() => router.back()} style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>Done — you cleared them all</Text>
-          </Pressable>
-        ) : (
-          <Pressable
-            onPress={goNext}
-            accessibilityRole="button"
-            style={({ pressed }) => [styles.nextButton, pressed && styles.pressed]}
-          >
-            <Text style={styles.nextButtonText}>Next puzzle</Text>
-            <Ionicons name="chevron-forward" size={22} color={colors.bg} />
-          </Pressable>
-        )
+        <Pressable
+          onPress={goNext}
+          disabled={loadingNext}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.nextButton, pressed && styles.pressed]}
+        >
+          {loadingNext ? (
+            <ActivityIndicator size="small" color={colors.bg} />
+          ) : (
+            <>
+              <Text style={styles.nextButtonText}>Next puzzle</Text>
+              <Ionicons name="chevron-forward" size={22} color={colors.bg} />
+            </>
+          )}
+        </Pressable>
       ) : (
         <Text style={styles.counter}>
-          Puzzle {index + 1} of {puzzles.length}
+          {puzzle.source === 'mistake' ? 'From your game' : 'Tactics training'} · #{index + 1}
         </Text>
       )}
+      {fetchError ? (
+        <Text style={styles.errorText}>Couldn’t load the next puzzle — check your connection.</Text>
+      ) : null}
     </View>
   );
 }
@@ -398,6 +495,12 @@ const styles = StyleSheet.create({
     fontFamily: fonts.body,
     fontSize: 12,
     textAlign: 'center',
-    fontVariant: ['tabular-nums'],
+  },
+  errorText: {
+    color: colors.danger,
+    fontFamily: fonts.body,
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: spacing.sm,
   },
 });

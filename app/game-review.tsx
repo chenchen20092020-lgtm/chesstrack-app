@@ -416,16 +416,24 @@ export default function GameReviewScreen(): React.JSX.Element {
   const trainingPuzzles = useMemo(() => {
     if (engineStatus !== 'done') return [];
     const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+    const pts = (c: string) => (c === 'blunder' ? 20 : c === 'mistake' ? 15 : 10);
     return userMistakes
       .filter((j) => j.bestUci)
       .map((j) => ({
+        id: `m-${j.ply}`,
         fen: j.ply === 1 ? START : review?.moves[j.ply - 2]?.fen ?? START,
-        solution: j.bestUci as string,
-        moveNumber: j.moveNumber,
-        classification: j.classification,
-        color: j.color,
+        solution: [j.bestUci as string],
+        points: pts(j.classification),
+        source: 'mistake' as const,
       }));
   }, [engineStatus, userMistakes, review]);
+
+  // After the player's own mistakes, endless puzzles continue from Lichess —
+  // skewed toward checkmate practice if they missed a mate this game.
+  const puzzleAngle = useMemo(
+    () => (userMistakes.some((j) => j.bestSan?.includes('#')) ? 'mate' : undefined),
+    [userMistakes]
+  );
 
   // Once the engine has judged the game, ask Groq to explain the top mistakes
   // in plain language. The engine stays the source of truth.
@@ -710,7 +718,11 @@ export default function GameReviewScreen(): React.JSX.Element {
               onPress={() =>
                 router.push({
                   pathname: '/puzzles',
-                  params: { data: JSON.stringify(trainingPuzzles) },
+                  params: {
+                    data: JSON.stringify(trainingPuzzles),
+                    difficulty: 'easier',
+                    ...(puzzleAngle ? { angle: puzzleAngle } : {}),
+                  },
                 } as unknown as Href)
               }
               accessibilityRole="button"
