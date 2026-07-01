@@ -28,6 +28,27 @@ const BOARD_LIGHT = '#C9B79A';
 const BOARD_DARK = '#3B332A';
 const LICHESS_POINTS = 15;
 
+const COMPLIMENTS = [
+  'Nailed it!',
+  'Brilliant!',
+  'Sharp eyes!',
+  'Clinical!',
+  'Well calculated!',
+  "That's the one!",
+  'Crisp play!',
+  'Textbook!',
+  'You saw it!',
+  'Excellent!',
+];
+
+// Difficulty ramps up as the player solves more puzzles this session.
+function difficultyFor(solved: number): string {
+  if (solved < 3) return 'easier';
+  if (solved < 7) return 'normal';
+  if (solved < 12) return 'harder';
+  return 'hardest';
+}
+
 type Puzzle = {
   id: string;
   fen: string;
@@ -61,13 +82,13 @@ export default function PuzzlesScreen(): React.JSX.Element {
 
   const initialPuzzles = useMemo(() => parsePuzzles(params.data), [params.data]);
   const angle = Array.isArray(params.angle) ? params.angle[0] : params.angle;
-  const difficulty = Array.isArray(params.difficulty) ? params.difficulty[0] : params.difficulty;
 
   const [puzzles, setPuzzles] = useState<Puzzle[]>(initialPuzzles);
   const [index, setIndex] = useState(0);
   const [solved, setSolved] = useState(false);
   const [wrong, setWrong] = useState(false);
   const [earned, setEarned] = useState(0);
+  const [compliment, setCompliment] = useState('');
   const [loadingNext, setLoadingNext] = useState(false);
   const [fetchError, setFetchError] = useState(false);
   const [stats, setStats] = useState<PuzzleStats>({ solved: 0, xp: 0, level: 1 });
@@ -80,6 +101,7 @@ export default function PuzzlesScreen(): React.JSX.Element {
   const indexRef = useRef(0);
   const puzzlesRef = useRef<Puzzle[]>(initialPuzzles);
   const fetchingRef = useRef(false);
+  const solvedCountRef = useRef(0);
 
   const puzzle = puzzles[index];
 
@@ -117,11 +139,11 @@ export default function PuzzlesScreen(): React.JSX.Element {
     if (indexRef.current < puzzlesRef.current.length - 1) return;
     if (fetchingRef.current) return;
     fetchingRef.current = true;
-    fetchLichessPuzzle({ angle, difficulty }).then((lp) => {
+    fetchLichessPuzzle({ angle, difficulty: difficultyFor(solvedCountRef.current) }).then((lp) => {
       fetchingRef.current = false;
       if (lp) setPuzzles((prev) => [...prev, lichessToPuzzle(lp)]);
     });
-  }, [angle, difficulty]);
+  }, [angle]);
 
   const onMove = useCallback(
     (info: { move: { from: string; to: string; promotion?: string } }) => {
@@ -160,8 +182,10 @@ export default function PuzzlesScreen(): React.JSX.Element {
       // Solved when no solver moves remain.
       if (solIdxRef.current >= p.solution.length) {
         lockRef.current = true;
+        solvedCountRef.current += 1;
         setSolved(true);
         setEarned(p.points);
+        setCompliment(COMPLIMENTS[Math.floor(Math.random() * COMPLIMENTS.length)]);
         addPuzzleSolved(p.points).then(setStats);
         prefetchIfLast();
         return;
@@ -194,7 +218,7 @@ export default function PuzzlesScreen(): React.JSX.Element {
       return;
     }
     setLoadingNext(true);
-    const lp = await fetchLichessPuzzle({ angle, difficulty });
+    const lp = await fetchLichessPuzzle({ angle, difficulty: difficultyFor(solvedCountRef.current) });
     setLoadingNext(false);
     if (lp) {
       setPuzzles((prev) => [...prev, lichessToPuzzle(lp)]);
@@ -202,7 +226,7 @@ export default function PuzzlesScreen(): React.JSX.Element {
     } else {
       setFetchError(true);
     }
-  }, [index, puzzles.length, angle, difficulty]);
+  }, [index, puzzles.length, angle]);
 
   const sideToMove = puzzle && puzzle.fen.split(' ')[1] === 'b' ? 'Black' : 'White';
   const boardSize = Math.min(width - spacing.lg * 2 - 16, 360);
@@ -278,7 +302,7 @@ export default function PuzzlesScreen(): React.JSX.Element {
             <View style={styles.checkCircle}>
               <Ionicons name="checkmark" size={22} color={colors.bg} />
             </View>
-            <Text style={styles.solvedText}>Correct!</Text>
+            <Text style={styles.solvedText}>{compliment || 'Correct!'}</Text>
             <Text style={styles.earnedText}>+{earned} XP</Text>
           </MotiView>
         ) : wrong ? (
