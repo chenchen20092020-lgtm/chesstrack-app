@@ -739,18 +739,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.ui,
     fontSize: 12,
   },
-  summaryPreview: {
-    backgroundColor: colors.surface,
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 16,
-  },
-  summaryPreviewText: {
-    color: colors.textSecondary,
-    fontFamily: fonts.body,
-    fontSize: 12,
-    lineHeight: 18,
-  },
   summaryButtonsRow: {
     flexDirection: 'row',
     marginHorizontal: -4,

@@ -290,7 +290,7 @@ export default function TrackerScreen(): React.JSX.Element {
     ];
     entries.sort((a, b) => b.value - a.value);
     return entries[0]?.key ?? 'peak';
-  }, [statValues.current, statValues.peak, statValues.total]);
+  }, [statValues]);
 
   return (
     <ScrollView

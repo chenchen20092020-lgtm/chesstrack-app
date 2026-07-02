@@ -1107,9 +1107,6 @@ const styles = StyleSheet.create({
   moveChipCurrent: {
     backgroundColor: colors.accent,
   },
-  moveChipFlagged: {
-    backgroundColor: colors.danger,
-  },
   moveChipText: {
     color: colors.textSecondary,
     fontFamily: fonts.ui,
@@ -1117,9 +1114,6 @@ const styles = StyleSheet.create({
   },
   moveChipTextCurrent: {
     color: colors.bg,
-  },
-  moveChipTextFlagged: {
-    color: colors.textPrimary,
   },
   divider: {
     height: 1,
