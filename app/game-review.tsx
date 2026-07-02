@@ -97,6 +97,7 @@ function getFlagColor(type: string): string {
 
 const BOARD_LIGHT = '#C9B79A';
 const BOARD_DARK = '#3B332A';
+const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 const SEV_RANK = { blunder: 3, mistake: 2, inaccuracy: 1 } as const;
 
 // Returns the chip accent color for an engine severity.
@@ -118,9 +119,6 @@ export default function GameReviewScreen(): React.JSX.Element {
   const [error, setError] = useState<string>('');
   const [review, setReview] = useState<GameReview | null>(null);
   const [moveIndex, setMoveIndex] = useState<number>(0);
-  const [currentFen, setCurrentFen] = useState<string>(
-    'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
-  );
   const [selectedTags, setSelectedTags] = useState<GameTag[]>(gameData?.tags ?? []);
   const [reflection, setReflection] = useState<string>(gameData?.reflection ?? '');
   const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
@@ -288,20 +286,10 @@ export default function GameReviewScreen(): React.JSX.Element {
     transcribedText,
   ]);
 
-  // Syncs currentFen whenever moveIndex or review changes.
+  // Reset the board to the start position whenever a new review loads.
   useEffect(() => {
-    if (review && review.moves[moveIndex]) {
-      setCurrentFen(review.moves[moveIndex].fen);
-    } else if (moveIndex === 0) {
-      setCurrentFen('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
-    }
-  }, [moveIndex, review]);
-
-  // Update the board in place (via ref) instead of remounting it on every move,
-  // so stepping through the game is smooth and instant.
-  useEffect(() => {
-    boardRef.current?.resetBoard(currentFen);
-  }, [currentFen]);
+    if (review) boardRef.current?.resetBoard(START_FEN);
+  }, [review]);
 
   // Loads review data using the selected platform.
   const loadReview = useCallback(async () => {
@@ -338,7 +326,6 @@ export default function GameReviewScreen(): React.JSX.Element {
 
       setReview(next);
       setMoveIndex(0);
-      setCurrentFen('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
     } catch {
       setError('Something went wrong while reviewing this game.');
     } finally {
@@ -504,7 +491,13 @@ export default function GameReviewScreen(): React.JSX.Element {
   const jumpToMove = useCallback(
     (index: number) => {
       if (!review) return;
-      setMoveIndex(Math.max(0, Math.min(index, review.moves.length)));
+      const clamped = Math.max(0, Math.min(index, review.moves.length));
+      // Update the board immediately (imperative) so the button feels instant,
+      // then update the counter/chips. moveIndex counts plies played, so the
+      // position is the FEN after move (moveIndex - 1).
+      const fen = clamped === 0 ? START_FEN : review.moves[clamped - 1].fen;
+      boardRef.current?.resetBoard(fen);
+      setMoveIndex(clamped);
     },
     [review]
   );
@@ -548,7 +541,7 @@ export default function GameReviewScreen(): React.JSX.Element {
             ref={boardRef}
             boardSize={Math.min(width - spacing.lg * 2 - 16, 360)}
             gestureEnabled={false}
-            fen={currentFen}
+            fen={START_FEN}
             colors={{ white: BOARD_LIGHT, black: BOARD_DARK }}
           />
         </View>
