@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { router, type Href } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { clearRatings, getUsername, saveUsername } from '@/lib/storage';
@@ -178,6 +179,22 @@ export default function SettingsScreen(): React.JSX.Element {
       </View>
 
       <View style={styles.card}>
+        <SectionLabel>SUPPORT</SectionLabel>
+        <Pressable
+          onPress={() => router.push('/feedback' as Href)}
+          accessibilityRole="button"
+          accessibilityLabel="Send feedback or report a bug"
+          style={({ pressed }) => [styles.feedbackRow, pressed && styles.pressed]}
+        >
+          <View style={styles.rowLeft}>
+            <Text style={styles.rowTitle}>Send feedback or report a bug</Text>
+            <Text style={styles.rowValue}>We read everything</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+        </Pressable>
+      </View>
+
+      <View style={styles.card}>
         <SectionLabel>ABOUT</SectionLabel>
         <Text style={styles.aboutName}>ChessTrack</Text>
         <Text style={styles.aboutVersion}>1.0.0</Text>
@@ -269,6 +286,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 10,
+  },
+  feedbackRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 44,
   },
   rowLeft: {
     flex: 1,
