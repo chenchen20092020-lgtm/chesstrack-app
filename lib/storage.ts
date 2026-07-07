@@ -243,6 +243,46 @@ export async function getTagSummary(): Promise<TagSummary> {
   return { totalTagged: taggedGames.length, tags };
 }
 
+const ANALYSIS_HISTORY_KEY = 'analysis_history';
+
+// Where in the game a mistake habit lives.
+export type MistakeCategory = 'opening' | 'middlegame' | 'endgame' | 'missed-mate';
+
+// One analyzed game's "mistake fingerprint", used to detect repeated habits.
+export type GameAnalysisRecord = {
+  gameId: string;
+  date: string;
+  accuracy: number | null;
+  blunders: number;
+  mistakes: number;
+  inaccuracies: number;
+  categories: Record<MistakeCategory, number>;
+};
+
+// Returns all saved analysis records sorted by game date ascending.
+export async function getAnalysisRecords(): Promise<GameAnalysisRecord[]> {
+  try {
+    const raw = await AsyncStorage.getItem(ANALYSIS_HISTORY_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as GameAnalysisRecord[];
+    if (!Array.isArray(parsed)) return [];
+    return [...parsed].sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+  } catch {
+    return [];
+  }
+}
+
+// Saves (upserts by gameId) one analysis record, capped to the last 100 games.
+export async function saveAnalysisRecord(record: GameAnalysisRecord): Promise<void> {
+  const existing = await getAnalysisRecords();
+  const updated = [...existing.filter((r) => r.gameId !== record.gameId), record]
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .slice(-100);
+  await AsyncStorage.setItem(ANALYSIS_HISTORY_KEY, JSON.stringify(updated));
+}
+
 const PUZZLE_PROGRESS_KEY = 'puzzle_progress';
 
 export type PuzzleStats = { solved: number; xp: number; level: number };

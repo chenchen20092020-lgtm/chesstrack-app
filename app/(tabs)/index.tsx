@@ -1,12 +1,26 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { router, type Href } from 'expo-router';
-import { FontAwesome5 } from '@expo/vector-icons';
+import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { getGames, getJournalEntries, getRatings, getUsername, GameEntry, RatingEntry } from '@/lib/storage';
+import {
+  getAnalysisRecords,
+  getGames,
+  getJournalEntries,
+  getRatings,
+  getUsername,
+  saveGames,
+  GameEntry,
+  RatingEntry,
+} from '@/lib/storage';
+import { fetchChessComGames, fetchLichessGames } from '@/lib/api';
+import { buildHabitStreaks, HabitStreak } from '@/lib/habits';
+import { useTabNavigation } from '@/lib/tab-context';
 import { colors, fonts, radius, shadows, spacing } from '@/lib/theme';
+
+const TRACKER_TAB_INDEX = 1;
 
 type SummaryState = {
   currentRating: number | null;
@@ -234,6 +248,11 @@ export default function HomeScreen(): React.JSX.Element {
   const [goalModalOpen, setGoalModalOpen] = useState<boolean>(false);
   const [goalInput, setGoalInput] = useState<string>('');
   const [refreshing, setRefreshing] = useState(false);
+  const [analyzing, setAnalyzing] = useState<boolean>(false);
+  const [analyzeStatus, setAnalyzeStatus] = useState<string>('');
+  const [habitStreaks, setHabitStreaks] = useState<HabitStreak[]>([]);
+  const [analyzedCount, setAnalyzedCount] = useState<number>(0);
+  const { goToTab } = useTabNavigation();
   // Loads current summary values from AsyncStorage.
   const loadSummary = useCallback(async () => {
     const ratings = await getRatings();
@@ -274,7 +293,69 @@ export default function HomeScreen(): React.JSX.Element {
     } catch {
       setJournalCount(0);
     }
+
+    try {
+      const records = await getAnalysisRecords();
+      setAnalyzedCount(records.length);
+      setHabitStreaks(buildHabitStreaks(records).slice(0, 2));
+    } catch {
+      setHabitStreaks([]);
+    }
   }, []);
+
+  // One-tap core action: analyze the user's latest game. If no account is
+  // linked yet, take them to the Tracker tab to connect first.
+  const handleAnalyzeLatest = useCallback(async () => {
+    if (analyzing) return;
+    setAnalyzeStatus('');
+    setAnalyzing(true);
+    try {
+      const [chesscom, lichess] = await Promise.all([
+        getUsername('Chess.com'),
+        getUsername('Lichess'),
+      ]);
+      if (!chesscom && !lichess) {
+        goToTab(TRACKER_TAB_INDEX);
+        return;
+      }
+
+      let games = await getGames();
+      if (games.length === 0) {
+        // First run: pull their recent games before analyzing.
+        let merged = [...games];
+        if (chesscom) {
+          const fetched = await fetchChessComGames(chesscom);
+          const ids = new Set(merged.map((g) => g.id));
+          merged = [...merged, ...fetched.filter((g) => !ids.has(g.id))];
+        }
+        if (lichess) {
+          const fetched = await fetchLichessGames(lichess);
+          const ids = new Set(merged.map((g) => g.id));
+          merged = [...merged, ...fetched.filter((g) => !ids.has(g.id))];
+        }
+        if (merged.length > 0) await saveGames(merged);
+        games = await getGames();
+      }
+
+      const latest = games[0];
+      if (!latest) {
+        setAnalyzeStatus('No games found on your account yet — play one and come back.');
+        return;
+      }
+
+      router.push({
+        pathname: '/game-review',
+        params: {
+          gameData: JSON.stringify({ ...latest, pgn: latest.pgn }),
+          platform: latest.platform,
+        },
+      });
+    } catch {
+      setAnalyzeStatus('Could not load your games. Check your connection and try again.');
+    } finally {
+      setAnalyzing(false);
+    }
+  }, [analyzing, goToTab]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -370,6 +451,62 @@ export default function HomeScreen(): React.JSX.Element {
         <Text style={styles.brandTitle}>ChessTrack</Text>
       )}
       <Text style={styles.dateText}>{dateText}</Text>
+
+      <Pressable
+        onPress={handleAnalyzeLatest}
+        disabled={analyzing}
+        accessibilityRole="button"
+        accessibilityLabel="Analyze my latest game"
+        style={({ pressed }) => [styles.analyzeCta, (pressed || analyzing) && styles.pressed]}
+      >
+        <View style={styles.analyzeIconWrap}>
+          <FontAwesome5 name="chess-board" size={20} color={colors.bg} />
+        </View>
+        <View style={styles.analyzeTextWrap}>
+          <Text style={styles.analyzeTitle}>Analyze My Latest Game</Text>
+          <Text style={styles.analyzeSub}>
+            {username
+              ? 'Engine + coach review, one tap'
+              : 'Connect Chess.com or Lichess to begin'}
+          </Text>
+        </View>
+        {analyzing ? (
+          <ActivityIndicator size="small" color={colors.bg} />
+        ) : (
+          <Ionicons name="chevron-forward" size={22} color={colors.bg} />
+        )}
+      </Pressable>
+      {analyzeStatus ? <Text style={styles.analyzeStatusText}>{analyzeStatus}</Text> : null}
+
+      {habitStreaks.length > 0 ? (
+        <View style={styles.habitCard}>
+          <View style={styles.habitHeaderRow}>
+            <Text style={styles.habitLabel}>MISTAKE HABITS</Text>
+            <Text style={styles.habitCount}>{analyzedCount} analyzed</Text>
+          </View>
+          {habitStreaks.map((s) => (
+            <View key={s.category} style={styles.habitRow}>
+              <View
+                style={[
+                  styles.habitDot,
+                  { backgroundColor: s.cleanStreak > 0 ? colors.success : colors.danger },
+                ]}
+              />
+              <Text style={styles.habitText}>{s.label}</Text>
+              <Text
+                style={[
+                  styles.habitStreakValue,
+                  { color: s.cleanStreak > 0 ? colors.success : colors.danger },
+                ]}
+              >
+                {s.cleanStreak > 0
+                  ? `${s.cleanStreak} game${s.cleanStreak === 1 ? '' : 's'} clean`
+                  : 'made last game'}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
 
       <View style={[styles.goalCard, shadows.accent]}>
         <View style={styles.goalTopRow}>
@@ -603,6 +740,96 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1.5,
     marginBottom: spacing.lg,
+  },
+  analyzeCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.accent,
+    borderRadius: radius.md,
+    paddingVertical: spacing.md + 4,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.md,
+    ...shadows.accent,
+  },
+  analyzeIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(20, 17, 13, 0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  analyzeTextWrap: {
+    flex: 1,
+  },
+  analyzeTitle: {
+    color: colors.bg,
+    fontFamily: fonts.headline,
+    fontSize: 18,
+    letterSpacing: 0.5,
+  },
+  analyzeSub: {
+    color: 'rgba(20, 17, 13, 0.65)',
+    fontFamily: fonts.ui,
+    fontSize: 11,
+    letterSpacing: 0.3,
+    marginTop: 2,
+  },
+  analyzeStatusText: {
+    color: colors.danger,
+    fontFamily: fonts.body,
+    fontSize: 12,
+    marginBottom: spacing.md,
+  },
+  habitCard: {
+    backgroundColor: colors.surfaceRaised,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+    ...shadows.card,
+  },
+  habitHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  habitLabel: {
+    color: colors.textMuted,
+    fontFamily: fonts.ui,
+    fontSize: 10,
+    letterSpacing: 2,
+  },
+  habitCount: {
+    color: colors.textMuted,
+    fontFamily: fonts.body,
+    fontSize: 11,
+    fontVariant: ['tabular-nums'],
+  },
+  habitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  habitDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: spacing.sm,
+  },
+  habitText: {
+    flex: 1,
+    color: colors.textPrimary,
+    fontFamily: fonts.body,
+    fontSize: 13,
+  },
+  habitStreakValue: {
+    fontFamily: fonts.ui,
+    fontSize: 12,
+    fontVariant: ['tabular-nums'],
   },
   heroCard: {
     backgroundColor: colors.surfaceRaised,

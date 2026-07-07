@@ -22,7 +22,21 @@ import {
   fetchLichessGameMoves,
   GameReview,
 } from '@/lib/api';
-import { ALL_TAGS, GameTag, TAG_LABELS, tagGame } from '@/lib/storage';
+import {
+  ALL_TAGS,
+  GameAnalysisRecord,
+  GameTag,
+  getAnalysisRecords,
+  saveAnalysisRecord,
+  TAG_LABELS,
+  tagGame,
+} from '@/lib/storage';
+import {
+  categorizeMistakes,
+  compareToHistory,
+  HabitReport,
+  ordinal,
+} from '@/lib/habits';
 import {
   analyzeGame,
   describeMistake,
@@ -141,6 +155,7 @@ export default function GameReviewScreen(): React.JSX.Element {
   const [judgements, setJudgements] = useState<MoveJudgement[]>([]);
   const [explanations, setExplanations] = useState<Record<number, string>>({});
   const [explaining, setExplaining] = useState<boolean>(false);
+  const [habitReport, setHabitReport] = useState<HabitReport | null>(null);
 
   // Clears any pending status reset timer when the screen unmounts.
   useEffect(() => {
@@ -466,6 +481,31 @@ export default function GameReviewScreen(): React.JSX.Element {
     };
   }, [engineStatus, userMistakes, userColor, review]);
 
+  // Habit Check: save this game's mistake fingerprint, then compare it against
+  // prior analyzed games to see which habits repeated or were broken.
+  useEffect(() => {
+    if (engineStatus !== 'done' || !gameData || judgements.length === 0) return;
+    const record: GameAnalysisRecord = {
+      gameId: gameData.id,
+      date: gameData.date,
+      accuracy,
+      blunders: mistakeCounts.blunder,
+      mistakes: mistakeCounts.mistake,
+      inaccuracies: mistakeCounts.inaccuracy,
+      categories: categorizeMistakes(judgements, userColor),
+    };
+    let cancelled = false;
+    saveAnalysisRecord(record)
+      .then(getAnalysisRecords)
+      .then((records) => {
+        if (!cancelled) setHabitReport(compareToHistory(records, gameData.id));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [engineStatus, judgements, userColor, gameData, accuracy, mistakeCounts]);
+
   // Keeps the chips row scrolled near the current move pair.
   useEffect(() => {
     if (!chipsRef.current || !review) return;
@@ -706,6 +746,52 @@ export default function GameReviewScreen(): React.JSX.Element {
               +{userMistakes.length - 6} more — step through the moves to see them all.
             </Text>
           ) : null}
+
+          {habitReport ? (
+            <View style={styles.habitCard}>
+              <Text style={styles.habitLabel}>HABIT CHECK</Text>
+              {habitReport.isBaseline ? (
+                <Text style={styles.habitBaselineText}>
+                  Baseline saved. Analyze your next game and this card will tell you
+                  whether these mistakes repeated — or whether you broke the habit.
+                </Text>
+              ) : habitReport.insights.length === 0 ? (
+                <Text style={styles.habitCleanText}>
+                  Clean sheet — none of your past mistake habits showed up this game.
+                </Text>
+              ) : (
+                habitReport.insights.map((h) => (
+                  <View key={`${h.kind}-${h.category}`} style={styles.habitRow}>
+                    <Ionicons
+                      name={
+                        h.kind === 'broken'
+                          ? 'checkmark-circle'
+                          : h.kind === 'repeated'
+                            ? 'repeat'
+                            : 'alert-circle'
+                      }
+                      size={18}
+                      color={
+                        h.kind === 'broken'
+                          ? colors.success
+                          : h.kind === 'repeated'
+                            ? colors.danger
+                            : colors.warning
+                      }
+                    />
+                    <Text style={styles.habitText}>
+                      {h.kind === 'broken'
+                        ? `${h.label}: none this game — habit breaking!`
+                        : h.kind === 'repeated'
+                          ? `${h.label} again — ${ordinal(h.runLength)} game in a row`
+                          : `${h.label} are back after a clean stretch`}
+                    </Text>
+                  </View>
+                ))
+              )}
+            </View>
+          ) : null}
+
           {trainingPuzzles.length > 0 ? (
             <Pressable
               onPress={() =>
@@ -1228,6 +1314,50 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 16,
     marginBottom: spacing.md,
+  },
+  habitCard: {
+    backgroundColor: colors.surfaceRaised,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.gold,
+    ...shadows.card,
+  },
+  habitLabel: {
+    color: colors.textMuted,
+    fontFamily: fonts.ui,
+    fontSize: 10,
+    letterSpacing: 2,
+    marginBottom: spacing.sm,
+  },
+  habitBaselineText: {
+    color: colors.textSecondary,
+    fontFamily: fonts.body,
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  habitCleanText: {
+    color: colors.success,
+    fontFamily: fonts.body,
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  habitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  habitText: {
+    flex: 1,
+    color: colors.textPrimary,
+    fontFamily: fonts.body,
+    fontSize: 13,
+    lineHeight: 19,
+    marginLeft: spacing.sm,
   },
   trainButton: {
     flexDirection: 'row',
