@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
 import Chessboard, { type ChessboardRef } from 'react-native-chessboard';
 import { MotiView } from 'moti';
+import { Chess, type Square } from 'chess.js';
 import type { AudioRecorder } from 'expo-audio';
 
 import { colors, fonts, radius, shadows, spacing } from '@/lib/theme';
@@ -69,7 +70,7 @@ type HistoryGame = {
   opponent: string;
   result: 'win' | 'loss' | 'draw';
   myRating: number;
-  platform: 'Chess.com' | 'Lichess';
+  platform: string;
   timeControl: string;
   pgn?: string;
   tags?: GameTag[];
@@ -306,6 +307,21 @@ export default function GameReviewScreen(): React.JSX.Element {
     if (review) boardRef.current?.resetBoard(START_FEN);
   }, [review]);
 
+  // from/to squares per ply, so single forward steps animate (piece slides)
+  // instead of teleporting via a full board reset.
+  const verboseMoves = useMemo(() => {
+    if (!review) return [] as { from: Square; to: Square }[];
+    try {
+      const replay = new Chess();
+      return review.moves.map((m) => {
+        const played = replay.move(m.move);
+        return { from: played.from as Square, to: played.to as Square };
+      });
+    } catch {
+      return [] as { from: Square; to: Square }[];
+    }
+  }, [review]);
+
   // Loads review data using the selected platform.
   const loadReview = useCallback(async () => {
     setLoading(true);
@@ -317,20 +333,21 @@ export default function GameReviewScreen(): React.JSX.Element {
         return;
       }
 
+      // Prefer the stored PGN when we have it (Chess.com syncs and bot games);
+      // otherwise fall back to fetching the game from Lichess.
       let next: GameReview | null = null;
-      if (gameData.platform === 'Chess.com') {
-        const pgn = gameData.pgn?.trim() ?? '';
-        if (!pgn) {
-          setError("This game's moves are not available. Try syncing your games again.");
-          setLoading(false);
-          return;
-        }
+      const pgn = gameData.pgn?.trim() ?? '';
+      if (pgn) {
         next = await fetchChessComGameMoves(pgn, gameData.result);
-      } else {
+      } else if (gameData.platform === 'Lichess') {
         const gameId = getLichessGameId(gameData);
         if (gameId) {
           next = await fetchLichessGameMoves(gameId, gameData.result);
         }
+      } else {
+        setError("This game's moves are not available. Try syncing your games again.");
+        setLoading(false);
+        return;
       }
 
       if (!next) {
@@ -532,14 +549,19 @@ export default function GameReviewScreen(): React.JSX.Element {
     (index: number) => {
       if (!review) return;
       const clamped = Math.max(0, Math.min(index, review.moves.length));
-      // Update the board immediately (imperative) so the button feels instant,
-      // then update the counter/chips. moveIndex counts plies played, so the
-      // position is the FEN after move (moveIndex - 1).
-      const fen = clamped === 0 ? START_FEN : review.moves[clamped - 1].fen;
-      boardRef.current?.resetBoard(fen);
+      if (clamped === moveIndex) return;
+      // Single forward step: play the move on the board so the piece slides
+      // (Chess.com-style). Jumps and backward steps snap via resetBoard.
+      // moveIndex counts plies, so the position is the FEN after ply-1.
+      if (clamped === moveIndex + 1 && verboseMoves[clamped - 1]) {
+        boardRef.current?.move(verboseMoves[clamped - 1]);
+      } else {
+        const fen = clamped === 0 ? START_FEN : review.moves[clamped - 1].fen;
+        boardRef.current?.resetBoard(fen);
+      }
       setMoveIndex(clamped);
     },
-    [review]
+    [review, moveIndex, verboseMoves]
   );
 
   if (loading) {
@@ -582,7 +604,13 @@ export default function GameReviewScreen(): React.JSX.Element {
             boardSize={Math.min(width - spacing.lg * 2 - 16, 360)}
             gestureEnabled={false}
             fen={START_FEN}
-            colors={{ white: BOARD_LIGHT, black: BOARD_DARK }}
+            durations={{ move: 170 }}
+            colors={{
+              white: BOARD_LIGHT,
+              black: BOARD_DARK,
+              lastMoveHighlight: 'rgba(201, 183, 133, 0.38)',
+              checkmateHighlight: 'rgba(224, 106, 94, 0.55)',
+            }}
           />
         </View>
       </View>

@@ -284,8 +284,13 @@ export default function PuzzlesScreen(): React.JSX.Element {
             gestureEnabled={!solved}
             fen={puzzle.fen}
             onMove={onMove}
-            durations={{ move: 150 }}
-            colors={{ white: BOARD_LIGHT, black: BOARD_DARK }}
+            durations={{ move: 160 }}
+            colors={{
+              white: BOARD_LIGHT,
+              black: BOARD_DARK,
+              lastMoveHighlight: 'rgba(201, 183, 133, 0.38)',
+              checkmateHighlight: 'rgba(224, 106, 94, 0.55)',
+            }}
           />
         </View>
       </View>

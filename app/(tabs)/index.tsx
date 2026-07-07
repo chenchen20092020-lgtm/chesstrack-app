@@ -601,6 +601,22 @@ export default function HomeScreen(): React.JSX.Element {
         <Text style={styles.learnArrow}>→</Text>
       </Pressable>
 
+      <Pressable
+        onPress={() => router.push('/play' as Href)}
+        accessibilityRole="button"
+        accessibilityLabel="Train with a formidable opponent"
+        style={({ pressed }) => [styles.learnCard, pressed && styles.pressed]}
+      >
+        <View style={styles.learnIcon}>
+          <FontAwesome5 name="robot" size={22} color={colors.gold} />
+        </View>
+        <View style={styles.learnTextWrap}>
+          <Text style={styles.learnTitle}>Train with a Formidable Opponent</Text>
+          <Text style={styles.learnSub}>Play a bot matched to your rating</Text>
+        </View>
+        <Text style={styles.learnArrow}>→</Text>
+      </Pressable>
+
       <View style={styles.weeklyCard}>
         <Text style={styles.weeklyTitle}>This Week</Text>
         <View style={styles.weeklyRow}>
