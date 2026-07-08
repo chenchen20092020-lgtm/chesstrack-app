@@ -1,199 +1,150 @@
 import React, { useEffect } from 'react';
-import { StyleSheet, View, Text } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withDelay,
   Easing,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
-import Svg, { Path, Circle, Rect, G, Defs, ClipPath } from 'react-native-svg';
-import { fonts } from '@/lib/theme';
+import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 
-// Side-view hand holding a pawn — black and white with creative inversion.
-function HandAndPawn(): React.JSX.Element {
+import { colors, fonts } from '@/lib/theme';
+
+// A clean champagne pawn built from simple geometry.
+function ChampagnePawn(): React.JSX.Element {
   return (
-    <Svg width={220} height={280} viewBox="0 0 220 280">
+    <Svg width={168} height={224} viewBox="0 0 200 260">
       <Defs>
-        {/* Clip for the pawn's inverted fill */}
-        <ClipPath id="pawnClip">
-          {/* Pawn head */}
-          <Circle cx="110" cy="52" r="22" />
-          {/* Pawn neck */}
-          <Rect x="101" y="72" width="18" height="16" rx="4" />
-          {/* Pawn collar */}
-          <Path d="M88 88 Q110 96 132 88 L136 100 Q110 110 84 100 Z" />
-          {/* Pawn body */}
-          <Path d="M84 100 Q78 130 76 155 L144 155 Q142 130 136 100 Z" />
-          {/* Pawn base */}
-          <Path d="M70 155 Q68 165 70 172 L150 172 Q152 165 150 155 Z" />
-        </ClipPath>
+        <LinearGradient id="pawnBody" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor={colors.accentLight} />
+          <Stop offset="0.55" stopColor={colors.accent} />
+          <Stop offset="1" stopColor={colors.accentDim} />
+        </LinearGradient>
       </Defs>
-
-      {/* ── Pawn: white outline, black fill with white interior pattern ── */}
-      <G>
-        {/* Pawn solid black silhouette */}
-        <Circle cx="110" cy="52" r="22" fill="#111" />
-        <Rect x="101" y="72" width="18" height="16" rx="4" fill="#111" />
-        <Path d="M88 88 Q110 96 132 88 L136 100 Q110 110 84 100 Z" fill="#111" />
-        <Path d="M84 100 Q78 130 76 155 L144 155 Q142 130 136 100 Z" fill="#111" />
-        <Path d="M70 155 Q68 165 70 172 L150 172 Q152 165 150 155 Z" fill="#111" />
-
-        {/* White highlight stripes inside the pawn (inverted interior) */}
-        <G clipPath="url(#pawnClip)">
-          {/* Diagonal light streaks */}
-          <Rect x="60" y="30" width="8" height="160" fill="#F0F0F0" transform="rotate(12 110 100)" />
-          <Rect x="90" y="30" width="3" height="160" fill="#E8E8E8" transform="rotate(12 110 100)" />
-          <Rect x="120" y="30" width="6" height="160" fill="#F0F0F0" transform="rotate(12 110 100)" />
-          <Rect x="145" y="30" width="2" height="160" fill="#E8E8E8" transform="rotate(12 110 100)" />
-          {/* Circular highlight on head */}
-          <Circle cx="104" cy="46" r="8" fill="#F5F5F5" />
-          <Circle cx="104" cy="46" r="4" fill="#111" />
-        </G>
-
-        {/* Pawn white outline */}
-        <Circle cx="110" cy="52" r="22" fill="none" stroke="#F0F0F0" strokeWidth="1.5" />
-        <Path d="M88 88 Q110 96 132 88 L136 100 Q110 110 84 100 Z" fill="none" stroke="#F0F0F0" strokeWidth="1" />
-        <Path d="M70 155 Q68 165 70 172 L150 172 Q152 165 150 155 Z" fill="none" stroke="#F0F0F0" strokeWidth="1.5" />
-      </G>
-
-      {/* ── Hand: white silhouette with black interior details ── */}
-      <G>
-        {/* Wrist / forearm coming from bottom-right */}
-        <Path
-          d="M200 280 Q190 250 175 230 Q165 218 155 210 L150 172 L130 172 L125 200 Q115 215 105 225 Q95 235 90 250 Q85 265 88 280 Z"
-          fill="#F0F0F0"
-        />
-
-        {/* Fingers wrapping around the pawn base */}
-        {/* Thumb (front, visible) */}
-        <Path
-          d="M70 172 Q55 168 50 158 Q47 150 52 143 Q58 136 68 140 L76 155"
-          fill="#F0F0F0"
-          stroke="#111"
-          strokeWidth="1"
-        />
-        {/* Thumb inner crease */}
-        <Path
-          d="M58 150 Q62 148 66 150"
-          fill="none"
-          stroke="#111"
-          strokeWidth="0.8"
-        />
-
-        {/* Index finger (wrapping over the base from front) */}
-        <Path
-          d="M70 172 Q60 178 56 170 Q52 162 58 155 Q64 150 70 155"
-          fill="#F0F0F0"
-          stroke="#111"
-          strokeWidth="1"
-        />
-
-        {/* Middle + ring fingers (behind pawn, peeking out) */}
-        <Path
-          d="M150 172 Q162 176 165 168 Q168 160 162 154 Q156 150 150 155"
-          fill="#D8D8D8"
-          stroke="#111"
-          strokeWidth="1"
-        />
-        <Path
-          d="M150 162 Q158 165 160 160 Q162 155 158 151 Q154 148 150 152"
-          fill="#D0D0D0"
-          stroke="#111"
-          strokeWidth="0.8"
-        />
-
-        {/* Hand interior details — knuckle lines, tendons */}
-        <Path
-          d="M130 180 Q135 195 132 210"
-          fill="none"
-          stroke="#333"
-          strokeWidth="0.8"
-        />
-        <Path
-          d="M140 178 Q148 195 145 215"
-          fill="none"
-          stroke="#333"
-          strokeWidth="0.8"
-        />
-        <Path
-          d="M120 185 Q122 200 118 220"
-          fill="none"
-          stroke="#333"
-          strokeWidth="0.6"
-        />
-
-        {/* Wrist crease */}
-        <Path
-          d="M100 240 Q130 235 160 242"
-          fill="none"
-          stroke="#444"
-          strokeWidth="0.8"
-        />
-        <Path
-          d="M105 246 Q128 242 155 248"
-          fill="none"
-          stroke="#444"
-          strokeWidth="0.6"
-        />
-      </G>
-
-      {/* ── Shadow / ground reflection ── */}
+      {/* head */}
+      <Circle cx="100" cy="58" r="32" fill="url(#pawnBody)" />
+      {/* glossy highlight */}
+      <Circle cx="87" cy="45" r="9" fill={colors.accentLight} opacity={0.7} />
+      {/* collar */}
+      <Path d="M58 100 Q100 118 142 100 L134 124 Q100 138 66 124 Z" fill="url(#pawnBody)" />
+      {/* body */}
       <Path
-        d="M50 172 Q110 182 170 172"
-        fill="none"
-        stroke="#333"
-        strokeWidth="0.5"
-        opacity={0.5}
+        d="M72 124 C64 162 59 186 54 206 L146 206 C141 186 136 162 128 124 Z"
+        fill="url(#pawnBody)"
       />
+      {/* base */}
+      <Path d="M42 206 Q36 221 44 234 L156 234 Q164 221 158 206 Z" fill="url(#pawnBody)" />
     </Svg>
   );
 }
 
+// The branded loading screen: a floating champagne pawn with a pulsing glow,
+// a breathing ground shadow, and staggered loading dots.
 export default function BrandSplash(): React.JSX.Element {
-  const titleOpacity = useSharedValue(0);
-  const titleTranslateY = useSharedValue(-12);
-  const artOpacity = useSharedValue(0);
-  const artScale = useSharedValue(0.92);
+  const enter = useSharedValue(0); // entrance progress
+  const float = useSharedValue(0); // endless hover loop
+  const glow = useSharedValue(0); // glow pulse loop
+  const titleIn = useSharedValue(0);
+  const dot1 = useSharedValue(0.25);
+  const dot2 = useSharedValue(0.25);
+  const dot3 = useSharedValue(0.25);
 
   useEffect(() => {
-    titleOpacity.value = withDelay(
-      200,
-      withTiming(1, { duration: 600, easing: Easing.out(Easing.quad) })
+    enter.value = withSpring(1, { damping: 13, stiffness: 95, mass: 0.7 });
+    float.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.quad) }),
+        withTiming(0, { duration: 1500, easing: Easing.inOut(Easing.quad) })
+      ),
+      -1,
+      false
     );
-    titleTranslateY.value = withDelay(
-      200,
-      withTiming(0, { duration: 600, easing: Easing.out(Easing.quad) })
+    glow.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 1300, easing: Easing.inOut(Easing.quad) }),
+        withTiming(0, { duration: 1300, easing: Easing.inOut(Easing.quad) })
+      ),
+      -1,
+      false
     );
-    artOpacity.value = withDelay(
-      450,
-      withTiming(1, { duration: 700, easing: Easing.out(Easing.quad) })
+    titleIn.value = withDelay(
+      300,
+      withTiming(1, { duration: 650, easing: Easing.out(Easing.cubic) })
     );
-    artScale.value = withDelay(
-      450,
-      withTiming(1, { duration: 700, easing: Easing.out(Easing.quad) })
-    );
-  }, [titleOpacity, titleTranslateY, artOpacity, artScale]);
+    const pulse = (delay: number) =>
+      withDelay(
+        delay,
+        withRepeat(
+          withSequence(
+            withTiming(1, { duration: 320, easing: Easing.out(Easing.quad) }),
+            withTiming(0.25, { duration: 640, easing: Easing.in(Easing.quad) })
+          ),
+          -1,
+          false
+        )
+      );
+    dot1.value = pulse(0);
+    dot2.value = pulse(240);
+    dot3.value = pulse(480);
+  }, [enter, float, glow, titleIn, dot1, dot2, dot3]);
+
+  const pieceStyle = useAnimatedStyle(() => ({
+    opacity: enter.value,
+    transform: [
+      {
+        translateY:
+          interpolate(enter.value, [0, 1], [46, 0]) +
+          interpolate(float.value, [0, 1], [4, -8]),
+      },
+      { scale: interpolate(enter.value, [0, 1], [0.5, 1]) },
+      { rotate: `${interpolate(float.value, [0, 1], [-1.8, 1.8])}deg` },
+    ],
+  }));
+
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: enter.value * interpolate(glow.value, [0, 1], [0.1, 0.26]),
+    transform: [{ scale: interpolate(glow.value, [0, 1], [0.85, 1.12]) }],
+  }));
+
+  const shadowStyle = useAnimatedStyle(() => ({
+    opacity: enter.value * interpolate(float.value, [0, 1], [0.4, 0.16]),
+    transform: [{ scaleX: interpolate(float.value, [0, 1], [1, 0.72]) }],
+  }));
 
   const titleStyle = useAnimatedStyle(() => ({
-    opacity: titleOpacity.value,
-    transform: [{ translateY: titleTranslateY.value }],
+    opacity: titleIn.value,
+    transform: [{ translateY: interpolate(titleIn.value, [0, 1], [14, 0]) }],
   }));
 
-  const artStyle = useAnimatedStyle(() => ({
-    opacity: artOpacity.value,
-    transform: [{ scale: artScale.value }],
-  }));
+  const d1 = useAnimatedStyle(() => ({ opacity: dot1.value }));
+  const d2 = useAnimatedStyle(() => ({ opacity: dot2.value }));
+  const d3 = useAnimatedStyle(() => ({ opacity: dot3.value }));
 
   return (
     <View style={styles.root}>
+      <View style={styles.stage}>
+        <Animated.View style={[styles.glow, glowStyle]} />
+        <Animated.View style={pieceStyle}>
+          <ChampagnePawn />
+        </Animated.View>
+        <Animated.View style={[styles.shadow, shadowStyle]} />
+      </View>
+
       <Animated.View style={[styles.titleWrap, titleStyle]}>
         <Text style={styles.title}>ChessTrack</Text>
+        <Text style={styles.tagline}>TRACK · ANALYZE · IMPROVE</Text>
       </Animated.View>
 
-      <Animated.View style={[styles.artWrap, artStyle]}>
-        <HandAndPawn />
-      </Animated.View>
+      <View style={styles.dotsRow}>
+        <Animated.View style={[styles.dot, d1]} />
+        <Animated.View style={[styles.dot, d2]} />
+        <Animated.View style={[styles.dot, d3]} />
+      </View>
     </View>
   );
 }
@@ -201,23 +152,54 @@ export default function BrandSplash(): React.JSX.Element {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#0A0A0A',
+    backgroundColor: colors.bg,
     alignItems: 'center',
-    justifyContent: 'flex-start',
-    paddingTop: 100,
+    justifyContent: 'center',
+  },
+  stage: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  glow: {
+    position: 'absolute',
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: colors.accent,
+  },
+  shadow: {
+    width: 120,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#000000',
+    marginTop: 10,
   },
   titleWrap: {
-    marginBottom: 40,
+    alignItems: 'center',
+    marginTop: 28,
   },
   title: {
     fontFamily: fonts.headline,
-    fontSize: 32,
-    color: '#F0F0F0',
+    fontSize: 34,
+    color: colors.textPrimary,
     letterSpacing: 2,
-    textAlign: 'center',
   },
-  artWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
+  tagline: {
+    fontFamily: fonts.ui,
+    fontSize: 10,
+    color: colors.textMuted,
+    letterSpacing: 4,
+    marginTop: 8,
+  },
+  dotsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 26,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.accent,
   },
 });

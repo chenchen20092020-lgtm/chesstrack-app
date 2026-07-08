@@ -90,6 +90,8 @@ export default function PlayBotScreen(): React.JSX.Element {
   const finishGame = useCallback(
     async (result: 'win' | 'loss' | 'draw', reason: string) => {
       if (phaseRef.current !== 'playing') return;
+      // Update the ref synchronously so a concurrent path can't finish twice.
+      phaseRef.current = 'over';
       setBotThinking(false);
       setUserResult(result);
       setResultText(reason);
@@ -210,12 +212,18 @@ export default function PlayBotScreen(): React.JSX.Element {
   const onMove = useCallback(
     (info: { move: Move }) => {
       const mirror = mirrorRef.current;
-      if (phaseRef.current !== 'playing' || botBusyRef.current) {
+      if (info.move.color !== userColorRef.current) {
+        // The board fires onMove for programmatic moves too: ignore the echo
+        // of the bot's own animated move (already applied to the mirror).
+        const last = mirror.history({ verbose: true }).slice(-1)[0];
+        if (last && last.from === info.move.from && last.to === info.move.to) {
+          return;
+        }
+        // Otherwise the user dragged the bot's piece — snap back.
         boardRef.current?.resetBoard(mirror.fen());
         return;
       }
-      if (info.move.color !== userColorRef.current) {
-        // The user dragged the bot's piece — snap back.
+      if (phaseRef.current !== 'playing' || botBusyRef.current) {
         boardRef.current?.resetBoard(mirror.fen());
         return;
       }
@@ -276,7 +284,6 @@ export default function PlayBotScreen(): React.JSX.Element {
   }, []);
 
   const boardSize = Math.min(width - spacing.lg * 2 - 16, 360);
-  const isUserTurn = phase === 'playing' && !botThinking;
 
   return (
     <View style={styles.container}>
@@ -468,9 +475,6 @@ export default function PlayBotScreen(): React.JSX.Element {
                   <Text style={styles.secondaryButtonText}>Rematch</Text>
                 </Pressable>
               </View>
-            ) : null}
-            {isUserTurn && userColor === 'b' && plyCount === 0 ? (
-              <Text style={styles.note}>Waiting for the bot’s first move…</Text>
             ) : null}
           </>
         )}

@@ -146,10 +146,23 @@ export default function PuzzlesScreen(): React.JSX.Element {
   }, [angle]);
 
   const onMove = useCallback(
-    (info: { move: { from: string; to: string; promotion?: string } }) => {
+    (info: { move: { from: string; to: string; promotion?: string; color?: string } }) => {
       const p = puzzleRef.current;
       const chess = chessRef.current;
-      if (!p || !chess || lockRef.current) return;
+      if (!p || !chess) return;
+
+      // The board fires onMove for programmatic moves too. Ignore the echo of
+      // the opponent reply we auto-played (already applied to the mirror), and
+      // resync if the user grabbed an opponent piece during the reply window.
+      const solverColor = p.fen.split(' ')[1] === 'b' ? 'b' : 'w';
+      if (info.move.color && info.move.color !== solverColor) {
+        const last = chess.history({ verbose: true }).slice(-1)[0];
+        if (last && last.from === info.move.from && last.to === info.move.to) return;
+        boardRef.current?.resetBoard(chess.fen());
+        return;
+      }
+
+      if (lockRef.current) return;
 
       const sol = p.solution[solIdxRef.current];
       if (!sol) return;
