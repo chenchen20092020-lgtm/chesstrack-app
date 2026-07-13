@@ -20,16 +20,10 @@ import { Chess, type Move, type Square } from 'chess.js';
 import { colors, fonts, radius, shadows, spacing } from '@/lib/theme';
 import { GameEntry, getGames, getRatings, saveGames } from '@/lib/storage';
 import { BotProfile, getBotMove, profileForRating } from '@/lib/bot';
+import { useBoardTheme } from '@/lib/boardTheme';
+import { hapticError, hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-const BOARD_LIGHT = '#C9B79A';
-const BOARD_DARK = '#3B332A';
-const BOARD_COLORS = {
-  white: BOARD_LIGHT,
-  black: BOARD_DARK,
-  lastMoveHighlight: 'rgba(201, 183, 133, 0.38)',
-  checkmateHighlight: 'rgba(224, 106, 94, 0.55)',
-};
 const MIN_BOT_THINK_MS = 550;
 
 type Phase = 'setup' | 'playing' | 'over';
@@ -46,6 +40,7 @@ const STRENGTH_OFFSET: Record<StrengthChoice, number> = {
 export default function PlayBotScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+  const boardTheme = useBoardTheme();
 
   const [phase, setPhase] = useState<Phase>('setup');
   const [sideChoice, setSideChoice] = useState<SideChoice>('random');
@@ -92,6 +87,9 @@ export default function PlayBotScreen(): React.JSX.Element {
       if (phaseRef.current !== 'playing') return;
       // Update the ref synchronously so a concurrent path can't finish twice.
       phaseRef.current = 'over';
+      if (result === 'win') hapticSuccess();
+      else if (result === 'loss') hapticError();
+      else hapticMedium();
       setBotThinking(false);
       setUserResult(result);
       setResultText(reason);
@@ -233,6 +231,7 @@ export default function PlayBotScreen(): React.JSX.Element {
         boardRef.current?.resetBoard(mirror.fen());
         return;
       }
+      hapticLight();
       setLastMoveSan(info.move.san);
       setPlyCount(mirror.history().length);
       if (checkGameOver('user')) return;
@@ -409,7 +408,12 @@ export default function PlayBotScreen(): React.JSX.Element {
                   fen={START_FEN}
                   onMove={onMove}
                   durations={{ move: 160 }}
-                  colors={BOARD_COLORS}
+                  colors={{
+                    white: boardTheme.light,
+                    black: boardTheme.dark,
+                    lastMoveHighlight: 'rgba(201, 183, 133, 0.38)',
+                    checkmateHighlight: 'rgba(224, 106, 94, 0.55)',
+                  }}
                 />
               </View>
             </View>

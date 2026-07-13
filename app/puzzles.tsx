@@ -22,11 +22,12 @@ import {
   PuzzleStats,
   XP_PER_LEVEL,
 } from '@/lib/storage';
-import { fetchLichessPuzzle, LichessPuzzle } from '@/lib/lichessPuzzles';
+import { fetchDailyPuzzle, fetchLichessPuzzle, LichessPuzzle } from '@/lib/lichessPuzzles';
+import { useBoardTheme } from '@/lib/boardTheme';
+import { hapticError, hapticLight, hapticSuccess } from '@/lib/haptics';
 
-const BOARD_LIGHT = '#C9B79A';
-const BOARD_DARK = '#3B332A';
 const LICHESS_POINTS = 15;
+const DAILY_POINTS = 25;
 
 const COMPLIMENTS = [
   'Nailed it!',
@@ -54,7 +55,7 @@ type Puzzle = {
   fen: string;
   solution: string[]; // UCI; solver plays even indices, opponent odd
   points: number;
-  source: 'mistake' | 'lichess';
+  source: 'mistake' | 'lichess' | 'daily';
 };
 
 function parsePuzzles(raw: string | string[] | undefined): Puzzle[] {
@@ -76,12 +77,14 @@ function lichessToPuzzle(lp: LichessPuzzle): Puzzle {
 
 // Renders the targeted-puzzle trainer: solve, score XP, continue endlessly.
 export default function PuzzlesScreen(): React.JSX.Element {
-  const params = useLocalSearchParams<{ data?: string; angle?: string; difficulty?: string }>();
+  const params = useLocalSearchParams<{ data?: string; angle?: string; daily?: string }>();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+  const boardTheme = useBoardTheme();
 
   const initialPuzzles = useMemo(() => parsePuzzles(params.data), [params.data]);
   const angle = Array.isArray(params.angle) ? params.angle[0] : params.angle;
+  const isDaily = (Array.isArray(params.daily) ? params.daily[0] : params.daily) === '1';
 
   const [puzzles, setPuzzles] = useState<Puzzle[]>(initialPuzzles);
   const [index, setIndex] = useState(0);
@@ -90,6 +93,7 @@ export default function PuzzlesScreen(): React.JSX.Element {
   const [earned, setEarned] = useState(0);
   const [compliment, setCompliment] = useState('');
   const [loadingNext, setLoadingNext] = useState(false);
+  const [loadingInitial, setLoadingInitial] = useState(isDaily && initialPuzzles.length === 0);
   const [fetchError, setFetchError] = useState(false);
   const [stats, setStats] = useState<PuzzleStats>({ solved: 0, xp: 0, level: 1 });
 
@@ -115,6 +119,24 @@ export default function PuzzlesScreen(): React.JSX.Element {
   useEffect(() => {
     getPuzzleStats().then(setStats);
   }, []);
+
+  // Daily mode starts with today's official Lichess puzzle.
+  useEffect(() => {
+    if (!isDaily || initialPuzzles.length > 0) return;
+    let cancelled = false;
+    fetchDailyPuzzle().then((lp) => {
+      if (cancelled) return;
+      if (lp) {
+        setPuzzles([
+          { id: `d-${lp.id}`, fen: lp.fen, solution: lp.solution, points: DAILY_POINTS, source: 'daily' },
+        ]);
+      }
+      setLoadingInitial(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isDaily, initialPuzzles.length]);
 
   // Set up the board and solving state whenever the current puzzle changes.
   useEffect(() => {
@@ -175,6 +197,7 @@ export default function PuzzlesScreen(): React.JSX.Element {
         (!promo || info.move.promotion === promo);
 
       if (!ok) {
+        hapticError();
         setWrong(true);
         lockRef.current = true;
         setTimeout(() => {
@@ -196,6 +219,7 @@ export default function PuzzlesScreen(): React.JSX.Element {
       if (solIdxRef.current >= p.solution.length) {
         lockRef.current = true;
         solvedCountRef.current += 1;
+        hapticSuccess();
         setSolved(true);
         setEarned(p.points);
         setCompliment(COMPLIMENTS[Math.floor(Math.random() * COMPLIMENTS.length)]);
@@ -225,6 +249,7 @@ export default function PuzzlesScreen(): React.JSX.Element {
   );
 
   const goNext = useCallback(async () => {
+    hapticLight();
     setFetchError(false);
     if (index + 1 < puzzles.length) {
       setIndex(index + 1);
@@ -249,10 +274,19 @@ export default function PuzzlesScreen(): React.JSX.Element {
     return (
       <View style={[styles.container, styles.center, { paddingTop: insets.top }]}>
         <StatusBar style="light" backgroundColor={colors.bg} />
-        <Text style={styles.emptyText}>No puzzles to train right now.</Text>
-        <Pressable onPress={() => router.back()} style={styles.primaryButton}>
-          <Text style={styles.primaryButtonText}>Back</Text>
-        </Pressable>
+        {loadingInitial ? (
+          <>
+            <ActivityIndicator size="small" color={colors.accent} />
+            <Text style={styles.emptyText}>Fetching today’s puzzle…</Text>
+          </>
+        ) : (
+          <>
+            <Text style={styles.emptyText}>No puzzles to train right now.</Text>
+            <Pressable onPress={() => router.back()} style={styles.primaryButton}>
+              <Text style={styles.primaryButtonText}>Back</Text>
+            </Pressable>
+          </>
+        )}
       </View>
     );
   }
@@ -299,8 +333,8 @@ export default function PuzzlesScreen(): React.JSX.Element {
             onMove={onMove}
             durations={{ move: 160 }}
             colors={{
-              white: BOARD_LIGHT,
-              black: BOARD_DARK,
+              white: boardTheme.light,
+              black: boardTheme.dark,
               lastMoveHighlight: 'rgba(201, 183, 133, 0.38)',
               checkmateHighlight: 'rgba(224, 106, 94, 0.55)',
             }}
@@ -331,7 +365,9 @@ export default function PuzzlesScreen(): React.JSX.Element {
             <Text style={styles.promptSub}>
               {puzzle.source === 'mistake'
                 ? 'Find the move you missed in this position'
-                : 'Find the best move'}
+                : puzzle.source === 'daily'
+                  ? 'Today’s challenge — one puzzle, worth extra XP'
+                  : 'Find the best move'}
             </Text>
           </>
         )}
@@ -355,7 +391,12 @@ export default function PuzzlesScreen(): React.JSX.Element {
         </Pressable>
       ) : (
         <Text style={styles.counter}>
-          {puzzle.source === 'mistake' ? 'From your game' : 'Tactics training'} · #{index + 1}
+          {puzzle.source === 'mistake'
+            ? 'From your game'
+            : puzzle.source === 'daily'
+              ? 'Daily Puzzle'
+              : 'Tactics training'}{' '}
+          · #{index + 1}
         </Text>
       )}
       {fetchError ? (

@@ -17,10 +17,12 @@ import {
 } from '@/lib/storage';
 import { fetchChessComGames, fetchLichessGames } from '@/lib/api';
 import { buildHabitStreaks, HabitStreak } from '@/lib/habits';
+import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useTabNavigation } from '@/lib/tab-context';
 import { colors, fonts, radius, shadows, spacing } from '@/lib/theme';
 
 const TRACKER_TAB_INDEX = 1;
+const PATTERNS_TAB_INDEX = 4;
 
 type SummaryState = {
   currentRating: number | null;
@@ -84,6 +86,14 @@ function formatHeaderDate(now: Date): string {
   ];
 
   return `${days[now.getDay()]} · ${months[now.getMonth()]} ${now.getFullYear()}`;
+}
+
+// Returns a time-of-day greeting for the header.
+function getGreeting(now: Date): string {
+  const hour = now.getHours();
+  if (hour < 12) return 'Good morning,';
+  if (hour < 18) return 'Good afternoon,';
+  return 'Good evening,';
 }
 
 // Formats the weekly rating delta with a sign.
@@ -307,6 +317,7 @@ export default function HomeScreen(): React.JSX.Element {
   // linked yet, take them to the Tracker tab to connect first.
   const handleAnalyzeLatest = useCallback(async () => {
     if (analyzing) return;
+    hapticMedium();
     setAnalyzeStatus('');
     setAnalyzing(true);
     try {
@@ -444,7 +455,7 @@ export default function HomeScreen(): React.JSX.Element {
 
       {username ? (
         <View style={styles.personalHeader}>
-          <Text style={styles.welcomeBack}>Welcome back,</Text>
+          <Text style={styles.welcomeBack}>{getGreeting(new Date())}</Text>
           <Text style={styles.usernameText}>{username}</Text>
         </View>
       ) : (
@@ -540,7 +551,20 @@ export default function HomeScreen(): React.JSX.Element {
 
       <View style={[styles.streakCard, streakDays > 0 ? styles.streakActiveBorder : null]}>
         <View style={styles.streakLeft}>
-          <Text style={styles.streakNumber}>{streakDays}</Text>
+          <View style={styles.streakNumberRow}>
+            <Ionicons
+              name={streakDays > 0 ? 'flame' : 'flame-outline'}
+              size={30}
+              color={
+                streakDays === 0
+                  ? colors.textMuted
+                  : streakDays < 3
+                    ? colors.warning
+                    : colors.danger
+              }
+            />
+            <Text style={styles.streakNumber}>{streakDays}</Text>
+          </View>
           <Text style={styles.streakLabel}>day streak</Text>
         </View>
         <Text style={[styles.streakMessage, { color: streakMessage.color }]}>{streakMessage.text}</Text>
@@ -585,37 +609,72 @@ export default function HomeScreen(): React.JSX.Element {
         <Text style={styles.nextStepSub}>{nextStep.sub}</Text>
       </View>
 
-      <Pressable
-        onPress={() => router.push('/learn' as Href)}
-        accessibilityRole="button"
-        accessibilityLabel="Learn the basics of chess"
-        style={({ pressed }) => [styles.learnCard, pressed && styles.pressed]}
-      >
-        <View style={styles.learnIcon}>
-          <FontAwesome5 name="chess-knight" size={24} color={colors.accent} />
-        </View>
-        <View style={styles.learnTextWrap}>
-          <Text style={styles.learnTitle}>New to chess?</Text>
-          <Text style={styles.learnSub}>Learn how every piece moves</Text>
-        </View>
-        <Text style={styles.learnArrow}>→</Text>
-      </Pressable>
+      <Text style={styles.quickHeading}>TRAINING</Text>
+      <View style={styles.quickGrid}>
+        <Pressable
+          onPress={() => {
+            hapticLight();
+            router.push({ pathname: '/puzzles', params: { daily: '1' } } as unknown as Href);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Solve today's daily puzzle"
+          style={({ pressed }) => [styles.quickTile, pressed && styles.pressed]}
+        >
+          <View style={styles.quickIcon}>
+            <Ionicons name="extension-puzzle" size={22} color={colors.accent} />
+          </View>
+          <Text style={styles.quickTitle}>Daily Puzzle</Text>
+          <Text style={styles.quickSub}>New every day</Text>
+        </Pressable>
 
-      <Pressable
-        onPress={() => router.push('/play' as Href)}
-        accessibilityRole="button"
-        accessibilityLabel="Train with a formidable opponent"
-        style={({ pressed }) => [styles.learnCard, pressed && styles.pressed]}
-      >
-        <View style={styles.learnIcon}>
-          <FontAwesome5 name="robot" size={22} color={colors.gold} />
-        </View>
-        <View style={styles.learnTextWrap}>
-          <Text style={styles.learnTitle}>Train with a Formidable Opponent</Text>
-          <Text style={styles.learnSub}>Play a bot matched to your rating</Text>
-        </View>
-        <Text style={styles.learnArrow}>→</Text>
-      </Pressable>
+        <Pressable
+          onPress={() => {
+            hapticLight();
+            router.push('/play' as Href);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Train with a formidable opponent"
+          style={({ pressed }) => [styles.quickTile, pressed && styles.pressed]}
+        >
+          <View style={styles.quickIcon}>
+            <FontAwesome5 name="robot" size={19} color={colors.gold} />
+          </View>
+          <Text style={styles.quickTitle}>Play the Bot</Text>
+          <Text style={styles.quickSub}>Matched to you</Text>
+        </Pressable>
+
+        <Pressable
+          onPress={() => {
+            hapticLight();
+            router.push('/learn' as Href);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Learn the basics of chess"
+          style={({ pressed }) => [styles.quickTile, pressed && styles.pressed]}
+        >
+          <View style={styles.quickIcon}>
+            <FontAwesome5 name="chess-knight" size={20} color={colors.accent} />
+          </View>
+          <Text style={styles.quickTitle}>Learn Chess</Text>
+          <Text style={styles.quickSub}>Piece by piece</Text>
+        </Pressable>
+
+        <Pressable
+          onPress={() => {
+            hapticLight();
+            goToTab(PATTERNS_TAB_INDEX);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="See your mistake patterns"
+          style={({ pressed }) => [styles.quickTile, pressed && styles.pressed]}
+        >
+          <View style={styles.quickIcon}>
+            <Ionicons name="bar-chart" size={20} color={colors.gold} />
+          </View>
+          <Text style={styles.quickTitle}>Patterns</Text>
+          <Text style={styles.quickSub}>Your habits</Text>
+        </Pressable>
+      </View>
 
       <View style={styles.weeklyCard}>
         <Text style={styles.weeklyTitle}>This Week</Text>
@@ -1207,48 +1266,54 @@ const styles = StyleSheet.create({
     fontSize: 12,
     letterSpacing: 0,
   },
-  learnCard: {
+  quickHeading: {
+    color: colors.textMuted,
+    fontFamily: fonts.ui,
+    fontSize: 10,
+    letterSpacing: 2,
+    marginBottom: spacing.sm,
+  },
+  quickGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
+  quickTile: {
+    width: '48%',
     backgroundColor: colors.surfaceRaised,
     borderColor: colors.border,
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.md,
-    marginBottom: spacing.lg,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.accent,
+    marginBottom: spacing.md,
     ...shadows.card,
   },
-  learnIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  quickIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: colors.surfaceHighlight,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.md,
+    marginBottom: spacing.sm,
   },
-  learnTextWrap: {
-    flex: 1,
-  },
-  learnTitle: {
+  quickTitle: {
     color: colors.textPrimary,
     fontFamily: fonts.headline,
-    fontSize: 17,
+    fontSize: 15,
     letterSpacing: 0.5,
   },
-  learnSub: {
+  quickSub: {
     color: colors.textSecondary,
     fontFamily: fonts.body,
-    fontSize: 12,
+    fontSize: 11,
     marginTop: 2,
   },
-  learnArrow: {
-    color: colors.accent,
-    fontFamily: fonts.subheadline,
-    fontSize: 20,
-    marginLeft: spacing.sm,
+  streakNumberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   modalBackdrop: {
     flex: 1,

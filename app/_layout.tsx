@@ -10,6 +10,7 @@ import {
 import { Inter_400Regular, Inter_500Medium } from '@expo-google-fonts/inter';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import BrandSplash from '@/components/BrandSplash';
+import { loadBoardTheme } from '@/lib/boardTheme';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -42,6 +43,11 @@ export default function RootLayout(): React.JSX.Element | null {
   useEffect(() => {
     const timer = setTimeout(() => setMinSplashDone(true), MIN_SPLASH_MS);
     return () => clearTimeout(timer);
+  }, []);
+
+  // Hydrate the saved board theme while the splash is showing.
+  useEffect(() => {
+    loadBoardTheme();
   }, []);
 
   // Check whether onboarding has been completed. Always resolves, even on error,

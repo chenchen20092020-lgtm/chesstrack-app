@@ -3,6 +3,7 @@ import {
   Alert,
   Modal,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -13,6 +14,13 @@ import { router, type Href } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { clearRatings, getUsername, saveUsername } from '@/lib/storage';
+import {
+  BOARD_THEMES,
+  BoardThemeKey,
+  getBoardTheme,
+  setBoardTheme,
+} from '@/lib/boardTheme';
+import { hapticLight } from '@/lib/haptics';
 import { colors, fonts, radius, shadows, spacing } from '@/lib/theme';
 
 type PlatformKey = 'Chess.com' | 'Lichess';
@@ -45,6 +53,7 @@ export default function SettingsScreen(): React.JSX.Element {
   const [editPlatform, setEditPlatform] = useState<PlatformKey | null>(null);
   const [editValue, setEditValue] = useState<string>('');
   const [isEditOpen, setIsEditOpen] = useState<boolean>(false);
+  const [boardKey, setBoardKey] = useState<BoardThemeKey>(getBoardTheme().key);
 
   // Loads saved usernames from storage.
   const loadAccounts = useCallback(async () => {
@@ -128,6 +137,7 @@ export default function SettingsScreen(): React.JSX.Element {
       <Text style={styles.headerTitle}>Settings</Text>
       <Text style={styles.headerSubtitle}>Manage your ChessTrack</Text>
 
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
       <View style={styles.card}>
         <SectionLabel>YOUR ACCOUNTS</SectionLabel>
         {accounts.map((row, idx) => (
@@ -151,6 +161,38 @@ export default function SettingsScreen(): React.JSX.Element {
             </View>
             {idx === 0 ? <Divider /> : null}
           </View>
+        ))}
+      </View>
+
+      <View style={styles.card}>
+        <SectionLabel>BOARD THEME</SectionLabel>
+        {Object.values(BOARD_THEMES).map((theme) => (
+          <Pressable
+            key={theme.key}
+            onPress={() => {
+              hapticLight();
+              setBoardKey(theme.key);
+              setBoardTheme(theme.key);
+            }}
+            accessibilityRole="button"
+            accessibilityState={{ selected: boardKey === theme.key }}
+            style={({ pressed }) => [styles.themeRow, pressed && styles.pressed]}
+          >
+            <View style={styles.themePreview}>
+              <View style={styles.themePreviewRow}>
+                <View style={[styles.themeSq, { backgroundColor: theme.light }]} />
+                <View style={[styles.themeSq, { backgroundColor: theme.dark }]} />
+              </View>
+              <View style={styles.themePreviewRow}>
+                <View style={[styles.themeSq, { backgroundColor: theme.dark }]} />
+                <View style={[styles.themeSq, { backgroundColor: theme.light }]} />
+              </View>
+            </View>
+            <Text style={styles.themeLabel}>{theme.label}</Text>
+            {boardKey === theme.key ? (
+              <Ionicons name="checkmark-circle" size={20} color={colors.accent} />
+            ) : null}
+          </Pressable>
         ))}
       </View>
 
@@ -200,6 +242,7 @@ export default function SettingsScreen(): React.JSX.Element {
         <Text style={styles.aboutVersion}>1.0.0</Text>
         <Text style={styles.aboutTagline}>Your personal chess improvement system</Text>
       </View>
+      </ScrollView>
 
       <Modal visible={isEditOpen} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
@@ -313,6 +356,32 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: colors.border,
+  },
+  scrollContent: {
+    paddingBottom: spacing.xl,
+  },
+  themeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 48,
+  },
+  themePreview: {
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginRight: spacing.md,
+  },
+  themePreviewRow: {
+    flexDirection: 'row',
+  },
+  themeSq: {
+    width: 14,
+    height: 14,
+  },
+  themeLabel: {
+    flex: 1,
+    color: colors.textPrimary,
+    fontFamily: fonts.ui,
+    fontSize: 14,
   },
   dangerButton: {
     minHeight: 44,

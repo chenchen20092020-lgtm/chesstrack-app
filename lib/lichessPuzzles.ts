@@ -12,29 +12,14 @@ export type LichessPuzzle = {
 
 const RESULT_TOKENS = new Set(['1-0', '0-1', '1/2-1/2', '*']);
 
-// Fetches a single puzzle from Lichess (no auth required) and converts the game
-// PGN + initialPly into the puzzle's starting position.
-export async function fetchLichessPuzzle(opts?: {
-  angle?: string;
-  difficulty?: string;
-}): Promise<LichessPuzzle | null> {
+type PuzzlePayload = {
+  game?: { pgn?: string };
+  puzzle?: { id?: string; solution?: string[]; initialPly?: number; rating?: number; themes?: string[] };
+};
+
+// Converts a Lichess puzzle payload (game PGN + initialPly) into a start FEN.
+function parsePuzzlePayload(data: PuzzlePayload): LichessPuzzle | null {
   try {
-    const query: string[] = [];
-    if (opts?.angle) query.push(`angle=${encodeURIComponent(opts.angle)}`);
-    if (opts?.difficulty) query.push(`difficulty=${encodeURIComponent(opts.difficulty)}`);
-    const url = `https://lichess.org/api/puzzle/next${query.length ? `?${query.join('&')}` : ''}`;
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12000);
-    const res = await fetch(url, { signal: controller.signal });
-    clearTimeout(timeout);
-    if (!res.ok) return null;
-
-    const data = (await res.json()) as {
-      game?: { pgn?: string };
-      puzzle?: { id?: string; solution?: string[]; initialPly?: number; rating?: number; themes?: string[] };
-    };
-
     const pgn = data.game?.pgn;
     const solution = data.puzzle?.solution;
     const initialPly = data.puzzle?.initialPly;
@@ -64,4 +49,37 @@ export async function fetchLichessPuzzle(opts?: {
   } catch {
     return null;
   }
+}
+
+// Fetches one Lichess API url and parses it into a puzzle.
+async function fetchPuzzleFromUrl(url: string): Promise<LichessPuzzle | null> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
+    if (!res.ok) return null;
+    const data = (await res.json()) as PuzzlePayload;
+    return parsePuzzlePayload(data);
+  } catch {
+    return null;
+  }
+}
+
+// Fetches a single puzzle from Lichess (no auth required).
+export async function fetchLichessPuzzle(opts?: {
+  angle?: string;
+  difficulty?: string;
+}): Promise<LichessPuzzle | null> {
+  const query: string[] = [];
+  if (opts?.angle) query.push(`angle=${encodeURIComponent(opts.angle)}`);
+  if (opts?.difficulty) query.push(`difficulty=${encodeURIComponent(opts.difficulty)}`);
+  return fetchPuzzleFromUrl(
+    `https://lichess.org/api/puzzle/next${query.length ? `?${query.join('&')}` : ''}`
+  );
+}
+
+// Fetches today's official Lichess daily puzzle (same one for everyone).
+export async function fetchDailyPuzzle(): Promise<LichessPuzzle | null> {
+  return fetchPuzzleFromUrl('https://lichess.org/api/puzzle/daily');
 }

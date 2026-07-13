@@ -46,6 +46,8 @@ import {
   suggestStudy,
 } from '@/lib/engine';
 import { explainMistakes } from '@/lib/coach';
+import { useBoardTheme } from '@/lib/boardTheme';
+import { hapticLight } from '@/lib/haptics';
 import * as WebBrowser from 'expo-web-browser';
 import {
   isOnline,
@@ -110,8 +112,6 @@ function getFlagColor(type: string): string {
   return colors.accent;
 }
 
-const BOARD_LIGHT = '#C9B79A';
-const BOARD_DARK = '#3B332A';
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 const SEV_RANK = { blunder: 3, mistake: 2, inaccuracy: 1 } as const;
 
@@ -127,6 +127,7 @@ export default function GameReviewScreen(): React.JSX.Element {
   const params = useLocalSearchParams<{ gameData?: string; platform?: string }>();
   const gameData = useMemo(() => parseGameDataParam(params.gameData), [params.gameData]);
   const { width } = useWindowDimensions();
+  const boardTheme = useBoardTheme();
   const chipsRef = useRef<ScrollView | null>(null);
   const boardRef = useRef<ChessboardRef>(null);
 
@@ -606,8 +607,8 @@ export default function GameReviewScreen(): React.JSX.Element {
             fen={START_FEN}
             durations={{ move: 170 }}
             colors={{
-              white: BOARD_LIGHT,
-              black: BOARD_DARK,
+              white: boardTheme.light,
+              black: boardTheme.dark,
               lastMoveHighlight: 'rgba(201, 183, 133, 0.38)',
               checkmateHighlight: 'rgba(224, 106, 94, 0.55)',
             }}
@@ -1688,7 +1689,10 @@ function CtrlButton({
   const [pressed, setPressed] = useState(false);
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => {
+        hapticLight();
+        onPress();
+      }}
       onPressIn={() => setPressed(true)}
       onPressOut={() => setPressed(false)}
       accessibilityRole="button"

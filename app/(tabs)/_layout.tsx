@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, fonts, shadows } from '@/lib/theme';
+import { hapticLight } from '@/lib/haptics';
 import { TabContext } from '@/lib/tab-context';
 
 // Import each screen component directly so the tab bar can switch between them.
@@ -78,7 +79,10 @@ export default function TabLayout(): React.JSX.Element {
             return (
               <Pressable
                 key={tab.name}
-                onPress={() => goToTab(index)}
+                onPress={() => {
+                  hapticLight();
+                  goToTab(index);
+                }}
                 accessibilityRole="button"
                 accessibilityState={isFocused ? { selected: true } : {}}
                 style={[styles.tabItem, isFocused ? styles.tabItemActive : null]}
